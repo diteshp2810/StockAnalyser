@@ -301,12 +301,14 @@ async function saFetch(url, validate) {
     for (let vi = 0; vi < variants.length && !px.dead; vi++) {
       const [vn, hd] = variants[vi], tag = px.n + (vn ? ` [${vn}]` : ''), t0 = Date.now();
       salog(`GET ${url.replace('https://', '')} via ${tag}`); saDiag = '';
+      stopCheck();
       try {
         const txt = await saGet(px.f(url), 22000, hd);
         if (!txt || txt.length < 150) throw new Error('empty response');
         if (!validate(txt)) throw new Error('page did not contain the expected data' + (saDiag ? ` (${saDiag})` : ''));
         goodProxyIdx = idx; salog(`${tag} OK · ${(txt.length / 1024).toFixed(0)} KB in ${((Date.now() - t0) / 1000).toFixed(1)}s`, 'ok'); return txt;
       } catch (e) {
+        stopCheck();
         saLastWhy = e.name === 'AbortError' ? 'timeout' : e.message;
         if (e.message === 'Failed to fetch' && vi === 0) { px.dead = true; salog(`${px.n} unreachable from this browser (CORS/network) — skipping it from now on`, 'warn'); }
         else salog(`${tag} failed: ${saLastWhy}`, 'warn');
@@ -557,6 +559,16 @@ if (!$('cSys').value) $('cSys').value = DEFAULT_SYS;
 // Ollama
 // ═══════════════════════════════════════════════════════════════════════════
 let ctl = null; const noThink = {}; let MODELS = [];
+// Stop must cancel every request of the running analysis (scraping, news, Ollama) — not just the model call.
+const _origFetch = window.fetch.bind(window);
+window.fetch = (u, o = {}) => {
+  if (!ctl) return _origFetch(u, o);
+  const g = ctl.signal; if (!o.signal) return _origFetch(u, { ...o, signal: g });
+  if (AbortSignal.any) return _origFetch(u, { ...o, signal: AbortSignal.any([o.signal, g]) });
+  const c = new AbortController(), f = () => c.abort(); g.aborted ? c.abort() : g.addEventListener('abort', f, { once: true }); o.signal.addEventListener('abort', f, { once: true });
+  return _origFetch(u, { ...o, signal: c.signal });
+};
+const stopCheck = () => { if (typeof cancelAll !== 'undefined' && cancelAll) throw new Error('Stopped'); };
 const olBase = () => ($('olUrl').value.trim() || 'http://localhost:11434').replace(/\/+$/, '').replace(/\/api$/, '');
 function olSay(m, c) { const e = $('olStatus'); e.textContent = m; e.className = 'state ' + (c || ''); }
 
@@ -675,7 +687,7 @@ const dOpts = () => ({ model:getModel('d'), temperature:parseFloat($('dTemp').va
 // timeout (first good answer wins) instead of being tried one after another; GDELT (which allows browser calls) is the fallback.
 const NEWS_MS = 9000, NEWS_CACHE = new Map(); let codetabsDead = false;
 const NEWS_RSS = q => `https://news.google.com/rss/search?q=${encodeURIComponent(q + ' when:90d')}&hl=en-IN&gl=IN&ceid=IN:en`;
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const sleep = ms => new Promise((res, rej) => { const t = setTimeout(res, ms), k = setInterval(() => { if (cancelAll) { clearTimeout(t); clearInterval(k); rej(new Error('Stopped')); } }, 120); setTimeout(() => clearInterval(k), ms + 50); });
 function newsItem(raw, src, date, link) {
   raw = String(raw || '').replace(/<!\[CDATA\[|\]\]>/g, '').trim(); src = String(src || '').replace(/<!\[CDATA\[|\]\]>/g, '').trim();
   const title = src && raw.endsWith(' - ' + src) ? raw.slice(0, -(src.length + 3)) : raw;
@@ -731,11 +743,13 @@ async function gdeltOnce(q) {
 async function newsFetch(q) {
   const hit = NEWS_CACHE.get(q); if (hit && Date.now() - hit.t < 15 * 60e3) { log(`“${q}”: ${hit.items.length} headlines (cached)`); return hit.items; }
   let res;
+  stopCheck();
   try { res = await raceRoutes(newsRoutes(q)); log(`“${q}”: ${res.items.length} headlines via ${res.name} in ${(res.ms / 1000).toFixed(1)}s`, 'ok'); }
   catch (e) {
+    stopCheck();
     log(`“${q}”: Google News routes failed (${e.message}) — trying GDELT`, 'warn');
     try { res = await gdeltFetch(q); log(`“${q}”: ${res.items.length} headlines via GDELT in ${(res.ms / 1000).toFixed(1)}s`, 'ok'); }
-    catch (e2) { throw new Error(`${e.message}; ${e2.message}`); }
+    catch (e2) { stopCheck(); throw new Error(`${e.message}; ${e2.message}`); }
   }
   NEWS_CACHE.set(q, { t:Date.now(), items:res.items }); return res.items;
 }
@@ -805,6 +819,7 @@ async function webResearch(d) {
   log(`Web research: ${queries.length} news searches via Google News`);
   S.trace.web = { done:false, text:`Fetching ${queries.length} news searches via Google News…` }; paintTrace();
   const res = await Promise.allSettled(queries.map((q, i) => sleep(i * 250).then(() => newsFetch(q)))), items = [], seen = new Set();
+  stopCheck();
   res.forEach((r, i) => {
     if (r.status !== 'fulfilled') { log(`“${queries[i]}” failed: ${r.reason.message}`, 'warn'); return; }
     r.value.forEach(n => { const k = n.title.toLowerCase().slice(0, 60); if (!seen.has(k)) { seen.add(k); items.push({ ...n, q:queries[i], cat:cats[i] }); } });
@@ -925,12 +940,12 @@ function sideCur(st, force) {
 }
 function showPanels(run) { sideCur(run.S, true); sideReason(run.S, true); }
 const flushPaint = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-function setBusy(b) { busy = b; $('btnRun').disabled = b; $('btnPaste').disabled = b; $('btnStop').disabled = !b; $('btnClear').disabled = b; updateRunButtons(); }
+function setBusy(b) { busy = b; if (b) $('btnStop').textContent = '■ Stop'; $('btnRun').disabled = b; $('btnPaste').disabled = b; $('btnStop').disabled = !b; $('btnClear').disabled = b; updateRunButtons(); }
 function updateRunButtons() {
   RUNS.forEach(r => { const c = r.el.querySelector('[data-act=cur]'), d = r.el.querySelector('[data-act=dec]'), x = r.el.querySelector('[data-act=remove]'); c.disabled = busy || !r.S.dossier; d.disabled = busy || !r.S.brief; x.style.display = busy && r.status === 'running' ? 'none' : ''; });
   $('btnCur').disabled = busy || !(LAST && LAST.S.dossier); $('btnDec').disabled = busy || !(LAST && LAST.S.brief);
 }
-$('btnStop').onclick = () => { cancelAll = true; if (ctl) ctl.abort(); };
+$('btnStop').onclick = () => { cancelAll = true; if (ctl) ctl.abort(); $('btnStop').disabled = true; $('btnStop').textContent = '■ Stopping…'; log('Stop requested — cancelling…', 'warn'); };
 function parseNames(raw) {
   const seen = new Set(), out = [];
   raw.split(/[,;\n]+/).map(x => x.trim()).filter(Boolean).forEach(x => { const k = x.toLowerCase(); if (!seen.has(k)) { seen.add(k); out.push(x); } });
@@ -1146,6 +1161,7 @@ async function analyseOne(run, pasted) {
     if ($('optReview').checked) { log('Paused: review or edit the briefing, then press “▶ Decision” on this stock', 'warn'); $('cState').textContent = '✔ briefing ready — review it, then run the decision'; setRun(run, 'paused', 'briefing ready — run the decision'); }
     else { setRun(run, 'running', 'decision…'); await decide(); setRun(run, 'done', 'done'); }
   } catch (e) {
+    if (cancelAll) e = new Error('Stopped');
     if (e.message === 'Stopped') { log('Stopped by user', 'warn'); setRun(run, 'stopped', 'stopped'); }
     else { log('Failed: ' + e.message, 'err'); if (!R('verdict').innerHTML.includes('err-card')) R('verdict').innerHTML = errCard(e.message, /scrape|resolve|proxy|screener|statements/i.test(e.message) ? 'If scraping is blocked, use “Paste the Screener page text” at the bottom, or run node scraper_proxy.js next to this file.' : ''); setRun(run, 'failed', 'failed'); }
   } finally { ctl = null; await flushPaint(); }
