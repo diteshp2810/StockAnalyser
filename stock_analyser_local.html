@@ -81,6 +81,20 @@
   .caret::after { content:'▍'; color:var(--purple); animation:bl 1s steps(2) infinite; } @keyframes bl { 50% { opacity:0; } }
   .spin { display:inline-block; width:12px; height:12px; border:2px solid var(--border); border-top-color:var(--purple); border-radius:50%; animation:sp .8s linear infinite; vertical-align:-2px; margin-right:6px; }
   @keyframes sp { to { transform:rotate(360deg); } }
+
+  .reasonbox { position:relative; }
+  .reasonbox .pen { position:absolute; left:0; top:0; width:44px; height:44px; pointer-events:none; z-index:5; opacity:0; transition:left .16s linear, top .16s linear, opacity .35s ease; will-change:left,top; }
+  .reasonbox .pen.on { opacity:1; }
+  .reasonbox .pen svg { width:44px; height:44px; overflow:visible; transform-origin:4px 40px; animation:penwrite .42s ease-in-out infinite; }
+  .reasonbox .pen.lift svg { animation:penlift 1.2s ease-in-out 1; }
+  .reasonbox .pen .ink { transform-origin:4px 40px; animation:inkdot .42s ease-in-out infinite; }
+  .reasonbox .pen .eye { animation:blink 3.2s infinite; transform-origin:center; transform-box:fill-box; }
+  .reasonbox .pm { display:inline-block; width:0; height:1em; vertical-align:text-bottom; }
+  @keyframes penwrite { 0%{transform:rotate(-4deg) translate(0,0);} 25%{transform:rotate(3deg) translate(1px,-2px);} 50%{transform:rotate(-2deg) translate(2px,0);} 75%{transform:rotate(4deg) translate(0,-2px);} 100%{transform:rotate(-4deg) translate(0,0);} }
+  @keyframes penlift { 0%{transform:rotate(0) translate(0,0);} 40%{transform:rotate(-14deg) translate(6px,-10px);} 70%{transform:rotate(10deg) translate(2px,-6px);} 100%{transform:rotate(0) translate(8px,-14px);} }
+  @keyframes inkdot { 0%,100%{opacity:.15; transform:scale(.6);} 50%{opacity:1; transform:scale(1.2);} }
+  @keyframes blink { 0%,94%,100%{transform:scaleY(1);} 97%{transform:scaleY(.1);} }
+  @media (prefers-reduced-motion: reduce) { .reasonbox .pen svg, .reasonbox .pen .ink, .reasonbox .pen .eye { animation:none; } }
 </style>
 </head>
 <body>
@@ -197,11 +211,31 @@
   </section>
   <section class="card reasoncard curcard" style="margin-top:12px;">
     <div class="row" style="justify-content:space-between;"><b style="font-size:0.86rem;">🧠 Curator reasoning</b><span id="rsCur" class="muted"></span></div>
-    <div class="reasonbox" id="curBox"><span class="muted">The curator's search plan, web research and working notes appear here live.</span></div>
+    <div class="reasonbox" id="curBox"><div class="rin"><span class="muted">The curator's search plan, web research and working notes appear here live.</span></div><div class="pen" aria-hidden="true"><svg viewBox="0 0 44 44"><g transform="rotate(38 4 40)">
+<ellipse class="ink" cx="4" cy="41" rx="3.2" ry="1.6" fill="#6366f1"/>
+<path d="M4 40 L-1.6 30 H9.6 Z" fill="#f3d9b1" stroke="#1a2233" stroke-width="1.2" stroke-linejoin="round"/>
+<path d="M4 40 L2.4 36.6 H5.6 Z" fill="#1a2233"/>
+<rect x="-1.6" y="12" width="11.2" height="18" rx="2" fill="#f59e0b" stroke="#1a2233" stroke-width="1.2"/>
+<rect x="-1.6" y="26" width="11.2" height="4" fill="#d97706"/>
+<rect x="-1.6" y="6" width="11.2" height="7" rx="2" fill="#ef4444" stroke="#1a2233" stroke-width="1.2"/>
+<rect x="9.4" y="8" width="2.2" height="12" rx="1" fill="#a855f7" stroke="#1a2233" stroke-width=".8"/>
+<g class="eye"><circle cx="1.2" cy="19" r="1.7" fill="#fff"/><circle cx="6.8" cy="19" r="1.7" fill="#fff"/><circle cx="1.5" cy="19.3" r=".9" fill="#1a2233"/><circle cx="7.1" cy="19.3" r=".9" fill="#1a2233"/></g>
+<path d="M1.6 23.4 Q4 26 6.4 23.4" fill="none" stroke="#1a2233" stroke-width="1" stroke-linecap="round"/>
+</g></svg></div></div>
   </section>
   <section class="card reasoncard" style="margin-top:12px;">
     <div class="row" style="justify-content:space-between;"><b style="font-size:0.86rem;">🧠 Decision model reasoning</b><span id="rsFor" class="muted"></span></div>
-    <div class="reasonbox" id="reasonBox"><span class="muted">The decision model's reasoning appears here live while it works.</span></div>
+    <div class="reasonbox" id="reasonBox"><div class="rin"><span class="muted">The decision model's reasoning appears here live while it works.</span></div><div class="pen" aria-hidden="true"><svg viewBox="0 0 44 44"><g transform="rotate(38 4 40)">
+<ellipse class="ink" cx="4" cy="41" rx="3.2" ry="1.6" fill="#6366f1"/>
+<path d="M4 40 L-1.6 30 H9.6 Z" fill="#f3d9b1" stroke="#1a2233" stroke-width="1.2" stroke-linejoin="round"/>
+<path d="M4 40 L2.4 36.6 H5.6 Z" fill="#1a2233"/>
+<rect x="-1.6" y="12" width="11.2" height="18" rx="2" fill="#f59e0b" stroke="#1a2233" stroke-width="1.2"/>
+<rect x="-1.6" y="26" width="11.2" height="4" fill="#d97706"/>
+<rect x="-1.6" y="6" width="11.2" height="7" rx="2" fill="#ef4444" stroke="#1a2233" stroke-width="1.2"/>
+<rect x="9.4" y="8" width="2.2" height="12" rx="1" fill="#a855f7" stroke="#1a2233" stroke-width=".8"/>
+<g class="eye"><circle cx="1.2" cy="19" r="1.7" fill="#fff"/><circle cx="6.8" cy="19" r="1.7" fill="#fff"/><circle cx="1.5" cy="19.3" r=".9" fill="#1a2233"/><circle cx="7.1" cy="19.3" r=".9" fill="#1a2233"/></g>
+<path d="M1.6 23.4 Q4 26 6.4 23.4" fill="none" stroke="#1a2233" stroke-width="1" stroke-linecap="round"/>
+</g></svg></div></div>
   </section>
 </aside></div>
 
@@ -847,6 +881,27 @@ let S = null, ROOT = null, RUNS = [], LAST = null, RUNSEQ = 0, cancelAll = false
 // Each stock owns a section (ROOT); S is that stock's state. Only one runs at a time, so these two pointers just follow the active stock.
 const R = (id, root) => { root = root || ROOT; return root ? root.querySelector('[data-r="' + id + '"]') : null; };
 // ── Decision model reasoning panel (right column): live reasoning of whichever stock is being processed ──
+// ── Cartoon pen: follows the end of the streamed reasoning text as if writing it ──
+const penTimers = new WeakMap();
+function paintBox(box, html, writing) {
+  const inner = box.querySelector('.rin'), pen = box.querySelector('.pen'); if (!inner) { box.innerHTML = html; return; }
+  const atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 30;
+  inner.innerHTML = html;
+  if (writing) { const rts = inner.querySelectorAll('.rt'), host = rts.length ? rts[rts.length - 1] : inner; const m = document.createElement('span'); m.className = 'pm'; host.appendChild(m); }
+  if (atEnd) box.scrollTop = box.scrollHeight;
+  if (!pen) return;
+  clearTimeout(penTimers.get(box));
+  const m = inner.querySelector('.pm');
+  if (writing && m) {
+    pen.classList.remove('lift'); pen.classList.add('on');
+    const x = Math.min(m.offsetLeft, box.clientWidth - 40), y = m.offsetTop + m.offsetHeight;
+    pen.style.left = (x - 4) + 'px'; pen.style.top = (y - 40) + 'px';
+    // if the stream pauses (model thinking / loading), keep the pen bobbing in place; it lifts off when writing ends
+  } else if (pen.classList.contains('on')) {
+    pen.classList.add('lift');
+    penTimers.set(box, setTimeout(() => pen.classList.remove('on', 'lift'), 1300));
+  }
+}
 function sideReason(st, force) {
   if (!st || (!force && st !== S)) return; const el = $('reasonBox'); if (!el) return;
   const run = RUNS.find(r => r.id === st.runId); $('rsFor').textContent = run ? run.name : '';
@@ -855,7 +910,7 @@ function sideReason(st, force) {
   (D.done || []).forEach(x => h += sec(`Decision · sample ${x.i + 1}`, [x.th && 'Thinking: ' + x.th.trim(), x.analysis && 'Analysis: ' + x.analysis].filter(Boolean).join('\n\n') || 'No reasoning text was sent by this model.'));
   if (D.cur) h += sec(`Decision · sample ${D.cur.i + 1} (live)`, [D.cur.th && 'Thinking: ' + D.cur.th.trim(), D.cur.analysis && 'Analysis: ' + D.cur.analysis].filter(Boolean).join('\n\n') || 'waiting for the first tokens…');
   const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 30;
-  el.innerHTML = h || '<span class="muted">Waiting for the decision model…</span>'; if (atEnd) el.scrollTop = el.scrollHeight;
+  paintBox(el, h || '<span class="muted">Waiting for the decision model…</span>', !!D.cur);
 }
 function sideCur(st, force) {
   if (!st || (!force && st !== S)) return; const el = $('curBox'); if (!el) return;
@@ -866,7 +921,7 @@ function sideCur(st, force) {
   if (T.web) h += sec('Web research', T.web.text || '', true);
   if (T.write) h += sec('Writing the briefing', [T.write.thinking && 'Thinking: ' + T.write.thinking.trim(), T.write.notes && 'Working notes:\n' + T.write.notes].filter(Boolean).join('\n\n') || (T.write.done ? 'No reasoning text was sent by this model.' : 'working…'));
   const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 30;
-  el.innerHTML = h || '<span class="muted">Waiting for the curator…</span>'; if (atEnd) el.scrollTop = el.scrollHeight;
+  paintBox(el, h || '<span class="muted">Waiting for the curator…</span>', !!((T.plan && !T.plan.done) || (T.web && !T.web.done) || (T.write && !T.write.done)));
 }
 function showPanels(run) { sideCur(run.S, true); sideReason(run.S, true); }
 const flushPaint = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
