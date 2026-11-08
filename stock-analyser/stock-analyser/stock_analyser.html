@@ -1,0 +1,1268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock Analyser · Local AI</title>
+<style>
+  :root {
+    --bg:#0b0f19; --card:#121826; --card2:#1a2233; --border:#263045; --text:#e5e9f2; --muted:#8b97ad;
+    --accent:#6366f1; --accent2:#818cf8; --green:#10b981; --amber:#f59e0b; --red:#ef4444; --purple:#a855f7; --log:#0a0e18;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f4f6fb; --card:#ffffff; --card2:#eff2f8; --border:#dbe1ec; --text:#1a2233; --muted:#5e6b84; --accent2:#4f46e5; --log:#f1f4fa; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:1560px; margin:0 auto; padding:22px 16px 60px; }
+  header h1 { margin:0; font-size:1.5rem; letter-spacing:-0.01em; }
+  header h1 span { font-size:0.8rem; font-weight:600; color:var(--accent2); background:rgba(99,102,241,.14); border:1px solid rgba(99,102,241,.35); padding:2px 10px; border-radius:20px; margin-left:8px; vertical-align:middle; }
+  header p { margin:6px 0 18px; color:var(--muted); font-size:0.86rem; max-width:820px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px 18px; margin-bottom:16px; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .row + .row { margin-top:12px; }
+  label { font-size:0.74rem; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  input[type=text], input[type=number], select, textarea {
+    background:var(--card2); border:1px solid var(--border); color:inherit; border-radius:10px; padding:9px 12px; font:inherit; font-size:0.9rem; outline:none; min-width:0;
+  }
+  input:focus, select:focus, textarea:focus { border-color:var(--accent); }
+  input.grow { flex:1; min-width:220px; }
+  textarea { width:100%; resize:vertical; font:0.8rem/1.55 ui-monospace,Menlo,Consolas,monospace; }
+  button { background:var(--card2); color:inherit; border:1px solid var(--border); border-radius:10px; padding:9px 16px; font:inherit; font-size:0.88rem; font-weight:600; cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--accent); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button.primary { background:linear-gradient(135deg,var(--accent),#4f46e5); border-color:transparent; color:#fff; }
+  button.small { padding:5px 11px; font-size:0.78rem; }
+  .muted { color:var(--muted); font-size:0.78rem; }
+  .link { color:var(--accent2); cursor:pointer; font-size:0.78rem; }
+  .link:hover { text-decoration:underline; }
+  .check { display:inline-flex; align-items:center; gap:7px; font-size:0.84rem; cursor:pointer; }
+  details > summary { cursor:pointer; font-weight:700; font-size:0.86rem; padding:6px 0; }
+  .help { font-size:0.8rem; color:var(--muted); line-height:1.6; }
+  .help code, code { background:var(--card2); padding:1px 6px; border-radius:5px; font-size:0.78rem; }
+  pre.cmd { background:var(--log); border:1px solid var(--border); border-radius:8px; padding:8px 10px; font:0.76rem/1.5 ui-monospace,Menlo,Consolas,monospace; overflow-x:auto; margin:6px 0 10px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:860px) { .grid2 { grid-template-columns:1fr; } }
+  .ai h2 { margin:0 0 4px; font-size:1.02rem; display:flex; align-items:center; gap:10px; }
+  .ai h2 .num { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; background:linear-gradient(135deg,var(--accent),var(--purple)); color:#fff; font-size:0.82rem; }
+  .ai .sub { color:var(--muted); font-size:0.78rem; margin:0 0 14px; }
+  .params { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin:12px 0; }
+  .params div { display:flex; flex-direction:column; gap:4px; }
+  .params input, .params select { width:100%; }
+  #cModel, #dModel, #cModelCustom, #dModelCustom { width:100%; }
+  #cModelCustom, #dModelCustom { margin-top:8px; }
+  .state { font-size:0.78rem; color:var(--muted); }
+  .state.run { color:var(--purple); } .state.ok { color:var(--green); } .state.err { color:var(--red); }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:14px; }
+  .kpi { background:var(--card2); border:1px solid var(--border); border-radius:12px; padding:10px 12px; }
+  .kpi span { font-size:0.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .kpi b { display:block; font-size:1.12rem; margin-top:2px; }
+  .kpi i { display:block; font-style:normal; font-size:0.68rem; color:var(--muted); margin-top:2px; }
+  table.t { width:100%; border-collapse:collapse; font-size:0.78rem; }
+  table.t th, table.t td { padding:5px 9px; text-align:right; border-bottom:1px solid var(--border); white-space:nowrap; }
+  table.t th:first-child, table.t td:first-child { text-align:left; position:sticky; left:0; background:var(--card); }
+  table.t th { color:var(--muted); font-weight:600; }
+  .badge { display:inline-block; padding:4px 18px; border-radius:20px; font-weight:800; font-size:0.95rem; letter-spacing:.05em; }
+  .bar { height:6px; background:var(--card2); border-radius:3px; overflow:hidden; }
+  .bar i { display:block; height:100%; }
+  .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin:12px 0; }
+  .chip { display:inline-block; background:var(--card2); border:1px solid var(--border); border-radius:12px; padding:2px 10px; margin:2px 6px 0 0; font-size:0.72rem; color:var(--muted); }
+  .layout { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:16px; align-items:start; } .main { min-width:0; }
+  .side { position:sticky; top:12px; } .side .logcard { margin:0; } .side .log { max-height:30vh; min-height:120px; } .reasonbox { margin-top:8px; max-height:calc(35vh - 70px); min-height:110px; overflow:auto; font-size:0.78rem; line-height:1.55; background:var(--log); border:1px solid var(--border); border-radius:10px; padding:8px 10px; } .reasonbox h5 { margin:10px 0 3px; font-size:0.74rem; color:var(--purple); text-transform:uppercase; letter-spacing:.04em; } .reasonbox h5:first-child { margin-top:0; } .reasonbox .rt { white-space:pre-wrap; word-break:break-word; } .reasonbox .rt.dim { color:var(--muted); }
+  @media (max-width:1100px) { .layout { grid-template-columns:1fr; } .side { position:static; order:-1; } .side .log { max-height:240px; } .reasonbox { max-height:320px; } }
+  .log { font:0.72rem/1.6 ui-monospace,Menlo,Consolas,monospace; background:var(--log); border:1px solid var(--border); border-radius:10px; padding:8px 10px; max-height:240px; overflow:auto; }
+  .news { font-size:0.8rem; margin:6px 0 0; padding-left:18px; }
+  .news li { margin:3px 0; } .news a { color:var(--accent2); text-decoration:none; } .news a:hover { text-decoration:underline; }
+  .err-card { border-left:4px solid var(--red); }
+  .runbox .rname { font-size:1rem; } .runhead { margin-bottom:6px; } .runhead .chip { margin:0; }
+  table.t td.l, table.t th.l { text-align:left; } table.t tr[data-go]:hover td { background:var(--card2); }
+  .think { font:0.74rem/1.55 ui-monospace,Menlo,Consolas,monospace; background:var(--log); border:1px dashed color-mix(in srgb, var(--purple) 45%, transparent); border-radius:10px; padding:8px 10px; max-height:210px; overflow:auto; white-space:pre-wrap; color:var(--muted); margin:6px 0 10px; }
+  .live-f { font-size:0.84rem; line-height:1.55; margin:6px 0; } .live-f b { color:var(--accent2); }
+  .caret::after { content:'▍'; color:var(--purple); animation:bl 1s steps(2) infinite; } @keyframes bl { 50% { opacity:0; } }
+  .spin { display:inline-block; width:12px; height:12px; border:2px solid var(--border); border-top-color:var(--purple); border-radius:50%; animation:sp .8s linear infinite; vertical-align:-2px; margin-right:6px; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+
+  .reasonbox { position:relative; }
+  .reasonbox .pen { position:absolute; left:0; top:0; width:44px; height:44px; pointer-events:none; z-index:5; opacity:0; transition:left .16s linear, top .16s linear, opacity .35s ease; will-change:left,top; }
+  .reasonbox .pen.on { opacity:1; }
+  .reasonbox .pen svg { width:44px; height:44px; overflow:visible; transform-origin:4px 40px; animation:penwrite .42s ease-in-out infinite; }
+  .reasonbox .pen.lift svg { animation:penlift 1.2s ease-in-out 1; }
+  .reasonbox .pen .ink { transform-origin:4px 40px; animation:inkdot .42s ease-in-out infinite; }
+  .reasonbox .pen .eye { animation:blink 3.2s infinite; transform-origin:center; transform-box:fill-box; }
+  .reasonbox .pm { display:inline-block; width:0; height:1em; vertical-align:text-bottom; }
+  @keyframes penwrite { 0%{transform:rotate(-4deg) translate(0,0);} 25%{transform:rotate(3deg) translate(1px,-2px);} 50%{transform:rotate(-2deg) translate(2px,0);} 75%{transform:rotate(4deg) translate(0,-2px);} 100%{transform:rotate(-4deg) translate(0,0);} }
+  @keyframes penlift { 0%{transform:rotate(0) translate(0,0);} 40%{transform:rotate(-14deg) translate(6px,-10px);} 70%{transform:rotate(10deg) translate(2px,-6px);} 100%{transform:rotate(0) translate(8px,-14px);} }
+  @keyframes inkdot { 0%,100%{opacity:.15; transform:scale(.6);} 50%{opacity:1; transform:scale(1.2);} }
+  @keyframes blink { 0%,94%,100%{transform:scaleY(1);} 97%{transform:scaleY(.1);} }
+  @media (prefers-reduced-motion: reduce) { .reasonbox .pen svg, .reasonbox .pen .ink, .reasonbox .pen .eye { animation:none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>📈 Stock Analyser <span>local AI · Ollama</span></h1>
+    <p>Scrapes fundamentals from Screener.in and recent news from the web, then <b>Curator AI</b> writes the briefing and <b>Decision AI</b> answers typed questions to give an Invest / Watch / Avoid verdict. Both AIs are models you choose from your own Ollama.</p>
+  </header>
+
+<div class="layout"><div class="main">
+
+  <!-- Connection -->
+  <section class="card" id="conn">
+    <div class="row">
+      <label for="olUrl">🦙 Ollama server</label>
+      <input id="olUrl" data-k="url" class="grow" type="text" spellcheck="false" value="http://localhost:11434" style="font-family:ui-monospace,Menlo,Consolas,monospace; font-size:0.84rem;">
+      <button id="btnDetect" class="primary">Connect &amp; detect models</button>
+    </div>
+    <div id="olStatus" class="state" style="margin-top:8px;"></div>
+    <details style="margin-top:6px;">
+      <summary>Can’t connect? (CORS / https / wrong port)</summary>
+      <div class="help">
+        Browsers only let this page talk to Ollama if Ollama allows the page’s origin. A page opened from a file has the origin <code>null</code>, which Ollama blocks by default.
+        <b>Fix once:</b> allow all origins and fully restart Ollama (quit it from the tray icon, then start it again).
+        <pre class="cmd"># Windows (PowerShell)         setx OLLAMA_ORIGINS "*"
+# macOS                        launchctl setenv OLLAMA_ORIGINS "*"
+# Linux (systemd)              sudo systemctl edit ollama   →  add  Environment="OLLAMA_ORIGINS=*"  →  sudo systemctl restart ollama</pre>
+        <b>No setting needed alternative:</b> serve this file from localhost — in the folder run <code>python -m http.server 8000</code> and open <code>http://localhost:8000/</code> (Ollama allows localhost origins by default).
+        This page also can’t call a local <code>http://</code> Ollama if it is opened over <code>https://</code>; open the saved file instead.
+        Install models with e.g. <code>ollama pull qwen2.5:7b</code>.
+      </div>
+    </details>
+  </section>
+
+  <!-- Search -->
+  <section class="card">
+    <div class="row">
+      <input id="q" class="grow" type="text" placeholder="One or many, comma separated — e.g. Tata Motors, RELIANCE, HDFCBANK, 500325" onkeydown="if(event.key==='Enter') run()">
+      <button id="btnRun" class="primary">🔍 Analyze</button>
+      <button id="btnStop" disabled>■ Stop</button>
+      <button id="btnClear" title="Remove all results from the page">🗑 Clear results</button>
+    </div>
+    <div id="batchState" class="state" style="margin-top:6px;"></div>
+    <div class="row" style="gap:20px;">
+      <label class="check"><input type="checkbox" id="optWeb" data-k="web" checked> 🌐 Web research (recent news)</label>
+      <label class="check" title="The curator model decides which news searches to run (up to 3). Off = fixed searches."><input type="checkbox" id="optPlan" data-k="plan" checked> Curator chooses the searches</label>
+      <label class="check" title="Adds 3 targeted searches: governance/fraud, sector outlook, and policy/regulation risk"><input type="checkbox" id="optGov" data-k="gov" checked> Governance, sector &amp; policy news</label>
+      <span class="link" onclick="newsDiag()" title="Tests every news route and shows which ones work from your network">test news sources</span>
+      <label class="check" title="Scroll to each stock as its analysis starts"><input type="checkbox" id="optFollow" data-k="follow" checked> Follow progress</label>
+      <label class="check" title="Stop after the curator so you can read or edit the briefing before the decision AI runs."><input type="checkbox" id="optReview" data-k="review"> Pause to review the briefing</label>
+    </div>
+  </section>
+
+  <!-- The two AI sections -->
+  <div class="grid2">
+    <section class="card ai" id="secCurator">
+      <h2><span class="num">1</span> Curator AI</h2>
+      <p class="sub">Plans the web searches and writes the briefing from the scraped data. Best with a model that writes well.</p>
+      <label for="cModel">Model</label>
+      <select id="cModel" data-k="cModel"></select>
+      <input id="cModelCustom" data-k="cCustom" type="text" spellcheck="false" placeholder="model name, e.g. qwen2.5:14b" hidden>
+      <div class="params">
+        <div><label for="cTemp">Temperature</label><input id="cTemp" data-k="cTemp" type="number" min="0" max="1.5" step="0.1" value="0.3"></div>
+        <div><label for="cCtx">Context</label><select id="cCtx" data-k="cCtx"><option>4096</option><option selected>8192</option><option>16384</option><option>32768</option></select></div>
+        <div><label for="cTok">Max tokens</label><input id="cTok" data-k="cTok" type="number" min="300" max="16000" step="100" value="2500"></div>
+        <div><label for="cThink">Thinking</label><select id="cThink" data-k="cThink"><option value="off" selected>Off (faster)</option><option value="on">On (thinking models)</option></select></div>
+      </div>
+      <details>
+        <summary>Curator instructions</summary>
+        <textarea id="cSys" data-k="cSys" rows="5"></textarea>
+        <span class="link" onclick="resetSys()">reset to default</span>
+      </details>
+      <div class="row"><button id="btnCur" disabled>↻ Re-run curator</button><span id="cState" class="state"></span></div>
+    </section>
+
+    <section class="card ai" id="secDecision">
+      <h2><span class="num">2</span> Decision AI</h2>
+      <p class="sub">Answers typed questions about the briefing (verdict, scores, red flags) as structured JSON. Needs reliable instruction-following.</p>
+      <label for="dModel">Model</label>
+      <select id="dModel" data-k="dModel"></select>
+      <input id="dModelCustom" data-k="dCustom" type="text" spellcheck="false" placeholder="model name, e.g. llama3.1:8b" hidden>
+      <div class="params">
+        <div><label for="dTemp">Temperature</label><input id="dTemp" data-k="dTemp" type="number" min="0" max="1.5" step="0.1" value="0.3"></div>
+        <div><label for="dCtx">Context</label><select id="dCtx" data-k="dCtx"><option>4096</option><option selected>8192</option><option>16384</option><option>32768</option></select></div>
+        <div><label for="dSamples" title="Ask several times and average the probabilities — steadier results from small local models">Samples (vote)</label><select id="dSamples" data-k="dSamples"><option value="1">1</option><option value="3" selected>3</option><option value="5">5</option></select></div>
+        <div><label for="dThink">Thinking</label><select id="dThink" data-k="dThink"><option value="off" selected>Off (faster)</option><option value="on">On (thinking models)</option></select></div>
+      </div>
+      <details>
+        <summary>Questions this AI answers</summary>
+        <div class="help" id="qList"></div>
+      </details>
+      <div class="row"><button id="btnDec" disabled>▶ Run decision</button><span id="dState" class="state"></span></div>
+    </section>
+  </div>
+  <div class="muted" style="margin:-4px 0 16px;">Tip: choosing the <b>same model</b> for both steps avoids Ollama unloading and reloading models between them.</div>
+
+  <div id="summary"></div>
+  <div id="results"></div>
+
+
+  <details class="card">
+    <summary>Scraping blocked? Paste the Screener page text instead</summary>
+    <div class="help" style="margin-bottom:8px;">Open the company page on screener.in, select all (Ctrl+A), copy, and paste below. The fundamentals are then read from the pasted text.</div>
+    <textarea id="pasteBox" rows="5" placeholder="Paste the whole page text here…"></textarea>
+    <div class="row"><button id="btnPaste">Analyze pasted text</button></div>
+  </details>
+
+</div>
+<aside class="side">
+  <section class="card logcard">
+    <div class="row" style="justify-content:space-between;"><b style="font-size:0.86rem;">Activity log</b><span><span class="link" onclick="copyLog()">copy</span> · <span class="link" onclick="clearLog()">clear</span></span></div>
+    <div class="log" id="log" style="margin-top:8px;"></div>
+  </section>
+  <section class="card reasoncard curcard" style="margin-top:12px;">
+    <div class="row" style="justify-content:space-between;"><b style="font-size:0.86rem;">🧠 Curator reasoning</b><span id="rsCur" class="muted"></span></div>
+    <div class="reasonbox" id="curBox"><div class="rin"><span class="muted">The curator's search plan, web research and working notes appear here live.</span></div><div class="pen" aria-hidden="true"><svg viewBox="0 0 44 44"><g transform="rotate(38 4 40)">
+<ellipse class="ink" cx="4" cy="41" rx="3.2" ry="1.6" fill="#6366f1"/>
+<path d="M4 40 L-1.6 30 H9.6 Z" fill="#f3d9b1" stroke="#1a2233" stroke-width="1.2" stroke-linejoin="round"/>
+<path d="M4 40 L2.4 36.6 H5.6 Z" fill="#1a2233"/>
+<rect x="-1.6" y="12" width="11.2" height="18" rx="2" fill="#f59e0b" stroke="#1a2233" stroke-width="1.2"/>
+<rect x="-1.6" y="26" width="11.2" height="4" fill="#d97706"/>
+<rect x="-1.6" y="6" width="11.2" height="7" rx="2" fill="#ef4444" stroke="#1a2233" stroke-width="1.2"/>
+<rect x="9.4" y="8" width="2.2" height="12" rx="1" fill="#a855f7" stroke="#1a2233" stroke-width=".8"/>
+<g class="eye"><circle cx="1.2" cy="19" r="1.7" fill="#fff"/><circle cx="6.8" cy="19" r="1.7" fill="#fff"/><circle cx="1.5" cy="19.3" r=".9" fill="#1a2233"/><circle cx="7.1" cy="19.3" r=".9" fill="#1a2233"/></g>
+<path d="M1.6 23.4 Q4 26 6.4 23.4" fill="none" stroke="#1a2233" stroke-width="1" stroke-linecap="round"/>
+</g></svg></div></div>
+  </section>
+  <section class="card reasoncard" style="margin-top:12px;">
+    <div class="row" style="justify-content:space-between;"><b style="font-size:0.86rem;">🧠 Decision model reasoning</b><span id="rsFor" class="muted"></span></div>
+    <div class="reasonbox" id="reasonBox"><div class="rin"><span class="muted">The decision model's reasoning appears here live while it works.</span></div><div class="pen" aria-hidden="true"><svg viewBox="0 0 44 44"><g transform="rotate(38 4 40)">
+<ellipse class="ink" cx="4" cy="41" rx="3.2" ry="1.6" fill="#6366f1"/>
+<path d="M4 40 L-1.6 30 H9.6 Z" fill="#f3d9b1" stroke="#1a2233" stroke-width="1.2" stroke-linejoin="round"/>
+<path d="M4 40 L2.4 36.6 H5.6 Z" fill="#1a2233"/>
+<rect x="-1.6" y="12" width="11.2" height="18" rx="2" fill="#f59e0b" stroke="#1a2233" stroke-width="1.2"/>
+<rect x="-1.6" y="26" width="11.2" height="4" fill="#d97706"/>
+<rect x="-1.6" y="6" width="11.2" height="7" rx="2" fill="#ef4444" stroke="#1a2233" stroke-width="1.2"/>
+<rect x="9.4" y="8" width="2.2" height="12" rx="1" fill="#a855f7" stroke="#1a2233" stroke-width=".8"/>
+<g class="eye"><circle cx="1.2" cy="19" r="1.7" fill="#fff"/><circle cx="6.8" cy="19" r="1.7" fill="#fff"/><circle cx="1.5" cy="19.3" r=".9" fill="#1a2233"/><circle cx="7.1" cy="19.3" r=".9" fill="#1a2233"/></g>
+<path d="M1.6 23.4 Q4 26 6.4 23.4" fill="none" stroke="#1a2233" stroke-width="1" stroke-linecap="round"/>
+</g></svg></div></div>
+  </section>
+</aside></div>
+
+  <div class="muted" style="margin-top:8px;">AI-generated from scraped data and news headlines — not investment advice, and not from a registered adviser. Verify against official filings and weigh your own goals and risk tolerance.</div>
+</div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+
+// ── Log ──
+let LOG = [];
+function paintLog() {
+  const col = { info:'var(--muted)', ok:'var(--green)', warn:'var(--amber)', err:'var(--red)', ai:'var(--purple)' }, el = $('log');
+  el.innerHTML = LOG.map(([lv, m]) => `<div style="color:${col[lv] || col.info};">${esc(m)}</div>`).join(''); el.scrollTop = el.scrollHeight;
+}
+function log(msg, lv) { LOG.push([lv || 'info', new Date().toLocaleTimeString('en-IN', { hour12:false }) + '  ' + msg]); if (LOG.length > 400) LOG.shift(); paintLog(); }
+const salog = log;
+function clearLog() { LOG = []; paintLog(); }
+function copyLog() { if (navigator.clipboard) navigator.clipboard.writeText(LOG.map(l => l[1]).join('\n')); }
+
+// ── Scraper engine (same logic as the dashboard's Stock Analyzer) ──
+let localProxyOk = false, activeProxies = [], goodProxyIdx = 0, saDiag = '', saHits = [], saLastWhy = '';
+const LOCAL_PROXY = (/^https?:$/.test(location.protocol) && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) ? location.origin : 'http://localhost:8787';
+const PUBLIC_PROXIES = [
+  { n: 'jina-reader', f: u => `https://r.jina.ai/${u}` },
+  { n: 'allorigins',  f: u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
+  { n: 'codetabs',    f: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` }
+];
+const MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+const SA_SCR = 'https://www.screener.in';
+const saNum = v => { if (v == null) return null; const n = parseFloat(String(v).replace(/[,₹%\s]/g, '')); return isFinite(n) ? n : null; };
+const saF = v => v == null ? '–' : Math.abs(v) >= 1000 ? Math.round(v).toLocaleString('en-IN') : String(Math.round(v * 100) / 100);
+const SA_JINA = [['markdown', {}], ['html', { 'X-Return-Format': 'html', 'X-No-Cache': 'true' }]];
+async function fetchDirect(url, ms = 15000) {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), ms);
+  try {
+    const r = await fetch(url, { signal: c.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.text();
+  } finally { clearTimeout(t); }
+}
+async function probeLocalProxy() {
+  try { const t = await fetchDirect(LOCAL_PROXY + '/health', 1500); return t.trim() === 'ok'; } catch (e) { return false; }
+}
+function buildProxyList() {
+  activeProxies = [];
+  if (localProxyOk) activeProxies.push({ n: 'local-proxy', f: u => `${LOCAL_PROXY}/proxy?url=${encodeURIComponent(u)}` });
+  PUBLIC_PROXIES.forEach(x => activeProxies.push(x));
+  goodProxyIdx = 0;
+}
+async function saGet(url, ms, headers) {
+  const c = new AbortController(), t = setTimeout(() => c.abort(), ms);
+  try { const r = await fetch(url, { signal: c.signal, headers }); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.text(); } finally { clearTimeout(t); }
+}
+async function saFetch(url, validate) {
+  const n = activeProxies.length; saLastWhy = '';
+  for (let k = 0; k < n; k++) {
+    const idx = (goodProxyIdx + k) % n, px = activeProxies[idx], variants = px.n === 'jina-reader' ? SA_JINA : [['', {}]];
+    for (let vi = 0; vi < variants.length && !px.dead; vi++) {
+      const [vn, hd] = variants[vi], tag = px.n + (vn ? ` [${vn}]` : ''), t0 = Date.now();
+      salog(`GET ${url.replace('https://', '')} via ${tag}`); saDiag = '';
+      stopCheck();
+      try {
+        const txt = await saGet(px.f(url), 22000, hd);
+        if (!txt || txt.length < 150) throw new Error('empty response');
+        if (!validate(txt)) throw new Error('page did not contain the expected data' + (saDiag ? ` (${saDiag})` : ''));
+        goodProxyIdx = idx; salog(`${tag} OK · ${(txt.length / 1024).toFixed(0)} KB in ${((Date.now() - t0) / 1000).toFixed(1)}s`, 'ok'); return txt;
+      } catch (e) {
+        stopCheck();
+        saLastWhy = e.name === 'AbortError' ? 'timeout' : e.message;
+        if (e.message === 'Failed to fetch' && vi === 0) { px.dead = true; salog(`${px.n} unreachable from this browser (CORS/network) — skipping it from now on`, 'warn'); }
+        else salog(`${tag} failed: ${saLastWhy}`, 'warn');
+        if (/^BLOCKED/.test(saDiag)) break;
+      }
+    }
+  }
+  throw new Error(saLastWhy || 'all proxies failed');
+}
+async function saResolve(q) {
+  let m = q.match(/screener\.in\/company\/([^\/?#\s]+)/i);
+  saHits = [];
+  if (m) return { code: m[1], name: m[1] };
+  if (/^\d{5,6}$/.test(q)) return { code: q, name: 'BSE ' + q };
+  salog(`Searching Screener for "${q}"`);
+  try {
+    const txt = await saFetch(`${SA_SCR}/api/company/search/?q=${encodeURIComponent(q)}&v=3&fts=1`, t => /\/company\//.test(t));
+    const hits = []; let r;
+    const re1 = /"name"\s*:\s*"([^"]+)"[^{}]*?"url"\s*:\s*"\/company\/([^\/"]+)/g, re2 = /"url"\s*:\s*"\/company\/([^\/"]+)[^{}]*?"name"\s*:\s*"([^"]+)"/g;
+    while ((r = re1.exec(txt))) hits.push({ name: r[1], code: r[2] });
+    if (!hits.length) while ((r = re2.exec(txt))) hits.push({ name: r[2], code: r[1] });
+    if (hits.length) { saHits = hits; salog(`Matched ${hits[0].name} (${hits[0].code})` + (hits.length > 1 ? ' · other matches: ' + hits.slice(1, 4).map(h => h.name).join(', ') : ''), 'ok'); return Object.assign({ alts: hits.slice(1, 3) }, hits[0]); }
+  } catch (e) { salog('Search failed: ' + e.message, 'warn'); }
+  if (/^[A-Za-z0-9&-]{2,15}$/.test(q)) { salog(`Trying "${q.toUpperCase()}" directly as an NSE symbol`, 'warn'); return { code: q.toUpperCase(), name: q.toUpperCase() }; }
+  throw new Error(`Could not resolve "${q}" — try the NSE symbol (e.g. TATAMOTORS) or the BSE code`);
+}
+function saHtml(h) {
+  return h.replace(/\s+/g, ' ').replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<tr[^>]*>/gi, '|').replace(/<\/t[dh]>/gi, '|')
+    .replace(/<\/(?:tr|p|div|li|h\d|ul|section)>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#x27;|&#39;/g, "'");
+}
+function saParse(raw) {
+  const text = /<\/?(?:tr|td|div|html|body)\b/i.test(raw) ? saHtml(raw) : raw;
+  const flat = text.replace(/[*_`]/g, '').replace(/\s+/g, ' ');
+  const g = (re, i) => { const m = flat.match(re); return m ? saNum(m[i || 1]) : null; };
+  const hl = /High\s*\/\s*Low\s*₹?\s*([\d,.]+)\s*\/\s*₹?\s*([\d,.]+)/i;
+  const k = { price: g(/Current Price\s*₹?\s*([\d,.]+)/i), mcap: g(/Market Cap\s*₹?\s*([\d,.]+)\s*Cr/i), hi: g(hl, 1), lo: g(hl, 2), pe: g(/Stock P\/E\s*([\d,.]+)/i),
+    bv: g(/Book Value\s*₹?\s*([\d,.]+)/i), dy: g(/Dividend Yield\s*(-?[\d.]+)\s*%/i), roce: g(/ROCE\s*(-?[\d.]+)\s*%/i), roe: g(/\bROE\s*(-?[\d.]+)\s*%/i) };
+  const lines = text.split(/\r?\n/).map(l => (!l.includes('|') && l.includes('\t')) ? '|' + l.replace(/\t/g, '|') + '|' : l); // pasted tables arrive tab-separated
+  const plain = lines.map(l => l.replace(/^[#>\-*\s]+/, '').replace(/[*_`]/g, '').trim());
+  const grab = (a, stop) => { const i = plain.findIndex(l => l.toLowerCase() === a); if (i < 0) return []; const out = []; for (let j = i + 1; j < plain.length && out.length < 6; j++) { const l = plain[j]; if (!l) continue; if (stop.test(l)) break; if (l.length > 15) out.push(l.slice(0, 200)); } return out; };
+  const pros = grab('pros', /^cons$/i), cons = grab('cons', /^(quarterly results|peer comparison|profit & loss|crores|view consolidated|limitations)/i);
+  const MON = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4}$/i;
+  // Annual vs quarterly: judge by the gap between consecutive columns (≈12 vs ≈3 months), NOT by "all same month".
+  // Companies that changed their fiscal year-end (e.g. Adani Green) have mixed months in the annual table and were wrongly skipped.
+  const hdrKind = hdr => {
+    const idx = hdr.map(x => { const m = x.match(/^([A-Za-z]{3})[a-z]*\s+(\d{4})$/); const mi = m ? MONTHS.indexOf(m[1].toLowerCase()) : -1; return mi < 0 ? null : +m[2] * 12 + mi; }).filter(v => v != null);
+    const gaps = idx.slice(1).map((v, i) => v - idx[i]).filter(g => g > 0).sort((a, b) => a - b);
+    if (!gaps.length) return 'q';
+    return gaps[Math.floor(gaps.length / 2)] >= 6 ? 'a' : 'q';
+  };
+  const ann = {}; let cols = null, kind = null, nPipe = 0, nHdr = 0;
+  lines.forEach(line => {
+    if (!line.includes('|')) return;
+    nPipe++;
+    const c = line.split('|').map(x => x.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/[*_`]/g, '').replace(/\u00a0/g, ' ').trim());
+    if (line.trim().startsWith('|')) c.shift(); if (line.trim().endsWith('|')) c.pop();
+    if (c.length < 3 || /^:?-+:?$/.test(c[0])) return;
+    if (/^S\.?\s*No/i.test(c[0])) { cols = null; return; }
+    const hdr = c.slice(1).filter(x => MON.test(x));
+    if (hdr.length >= 2 && hdr.length >= c.length - 2) { nHdr++; kind = hdrKind(hdr); cols = c.slice(1); return; }
+    if (!cols || kind !== 'a') return;
+    const label = c[0].replace(/\s*[+\-]\s*$/, '').replace(/\s+/g, ' ').trim(), vals = c.slice(1).map(saNum);
+    if (label && vals.filter(v => v != null).length >= 2 && !ann[label]) ann[label] = { cols, vals };
+  });
+  const has = re => Object.keys(ann).some(l => re.test(l));
+  if (!has(/^(sales|revenue)/i) || !has(/^net profit/i)) { saDiag = (/returned error \d+|just a moment|cloudflare|captcha|access denied|attention required|too many requests|rate limit/i.test(text.slice(0, 600)) ? 'BLOCKED: ' : '') + `length ${raw.length}, table rows ${nPipe}, year-header rows ${nHdr}, statement rows ${Object.keys(ann).length}, P/E ${k.pe != null ? 'found' : 'missing'}, starts "${text.replace(/\s+/g, ' ').trim().slice(0, 80)}"`; return null; }
+  saDiag = '';
+  const t = raw.match(/Title:\s*([^\n|]+?)(?:\s+share price|\s*\||\n)/);
+  return { k, ann, pros, cons, name: t ? t[1].trim() : '' };
+}
+async function saScrape(res) {
+  let why = '';
+  for (const path of ['consolidated/', '']) {
+    const url = `${SA_SCR}/company/${res.code}/${path}`; let d = null;
+    try { await saFetch(url, t => !!(d = saParse(t))); } catch (e) { why = e.message; salog(`${path ? 'Consolidated' : 'Standalone'} page unusable: ${e.message}`, 'warn'); }
+    if (d) { d.url = url; d.basis = path ? 'Consolidated' : 'Standalone'; d.name = d.name || res.name; return d; }
+    if (/^BLOCKED|BLOCKED:/.test(why)) break;
+  }
+  throw new Error(why || 'no usable data');
+}
+function saDerive(d) {
+  const A = re => { const k = Object.keys(d.ann).find(l => re.test(l)); return k ? d.ann[k] : null; };
+  const R = { sales: A(/^(sales|revenue)/i), opm: A(/^(opm|financing margin)/i), intr: A(/^interest/i), pbt: A(/^profit before tax/i), np: A(/^net profit/i), eps: A(/^eps/i), eq: A(/^equity capital/i), res: A(/^reserves/i), bor: A(/^borrowings/i), cfo: A(/^cash from operating/i), fcf: A(/^free cash flow/i) };
+  const val = (r, y) => { if (!r) return null; const i = r.cols.indexOf(y); return i < 0 ? null : r.vals[i]; };
+  const all = R.sales.cols.filter(c => !/ttm/i.test(c)), years = all.slice(-6), latest = all[all.length - 1];
+  const ttm = key => { const r = R[key]; if (!r) return null; const i = r.cols.findIndex(c => /ttm/i.test(c)); return i < 0 ? null : r.vals[i]; };
+  const get = key => years.map(y => val(R[key], y)), nw = y => { const e = val(R.eq, y), r = val(R.res, y); return e != null && r != null ? e + r : null; };
+  const series = { sales: get('sales'), np: get('np'), eps: get('eps'), opm: get('opm'), bor: get('bor'), cfo: get('cfo'), fcf: get('fcf'),
+    roe: years.map(y => { const n = val(R.np, y), w = nw(y); return n != null && w > 0 ? +(n / w * 100).toFixed(1) : null; }),
+    de: years.map(y => { const b = val(R.bor, y), w = nw(y); return b != null && w > 0 ? +(b / w).toFixed(2) : null; }),
+    ic: years.map(y => { const p = val(R.pbt, y), i = val(R.intr, y); return p != null && i > 0 ? +((p + i) / i).toFixed(1) : null; }),
+    cfoNp: years.map(y => { const c = val(R.cfo, y), n = val(R.np, y); return c != null && n > 0 ? +(c / n).toFixed(2) : null; }) };
+  const cagr = (r, n) => { const e = val(r, latest), i = all.length - 1 - n, s = i >= 0 ? val(r, all[i]) : null; return e > 0 && s > 0 ? +((Math.pow(e / s, 1 / n) - 1) * 100).toFixed(1) : null; };
+  const g = { sales3: cagr(R.sales, 3), sales5: cagr(R.sales, 5), np3: cagr(R.np, 3), np5: cagr(R.np, 5), eps3: cagr(R.eps, 3), eps5: cagr(R.eps, 5) };
+  const last = a => { for (let i = a.length - 1; i >= 0; i--) if (a[i] != null) return a[i]; return null; };
+  return { years, latest, series, g, ttm: { sales: ttm('sales'), np: ttm('np'), eps: ttm('eps') }, isFin: Object.keys(d.ann).some(l => /^(financing profit|financing margin)/i.test(l)),
+    pb: d.k.price && d.k.bv ? +(d.k.price / d.k.bv).toFixed(2) : null, peg: d.k.pe && g.eps3 > 0 ? +(d.k.pe / g.eps3).toFixed(2) : null, de: last(series.de), ic: last(series.ic), roeC: last(series.roe), eps: ttm('eps') != null ? ttm('eps') : last(series.eps) };
+}
+function saDossier(d, x) {
+  const k = d.k, row = (n, a, u) => `${n}${u ? ' (' + u + ')' : ''}: ` + x.years.map((y, i) => `${y.slice(0, 3)} ${y.slice(-2)}=${saF(a[i])}`).join(', ');
+  return [`Company: ${d.name} | ${d.basis} statements, ₹ Cr unless stated | latest FY: ${x.latest}${x.isFin ? ' | NOTE: financial-sector company, so debt/equity and interest coverage are not comparable to non-financials' : ''}`,
+    `Valuation: price ₹${saF(k.price)}, 52-week high/low ₹${saF(k.hi)}/${saF(k.lo)}, market cap ₹${saF(k.mcap)} Cr, P/E ${saF(k.pe)}, P/B ${saF(x.pb)} (book value ₹${saF(k.bv)}), dividend yield ${saF(k.dy)}%, P/E ÷ 3y EPS CAGR ${saF(x.peg)}`,
+    `Returns: ROE ${saF(k.roe)}%, ROCE ${saF(k.roce)}%`, row('ROE computed as net profit ÷ year-end net worth', x.series.roe, '%'), row('EPS', x.series.eps, '₹') + ` | TTM EPS ${saF(x.ttm.eps)}`,
+    row('Sales', x.series.sales), row('Net profit', x.series.np) + ` | TTM sales ${saF(x.ttm.sales)}, TTM net profit ${saF(x.ttm.np)}`, row('Operating margin', x.series.opm, '%'),
+    row('Borrowings', x.series.bor), row('Debt/Equity', x.series.de, 'x'), row('Interest coverage = (PBT+interest)/interest', x.series.ic, 'x'), row('Operating cash flow', x.series.cfo), row('Free cash flow', x.series.fcf), row('Operating cash flow ÷ net profit', x.series.cfoNp, 'x'),
+    `Growth CAGR %: sales 3y ${saF(x.g.sales3)}, 5y ${saF(x.g.sales5)}; net profit 3y ${saF(x.g.np3)}, 5y ${saF(x.g.np5)}; EPS 3y ${saF(x.g.eps3)}, 5y ${saF(x.g.eps5)}`,
+    d.pros.length ? 'Site-flagged pros: ' + d.pros.join(' | ') : '', d.cons.length ? 'Site-flagged cons: ' + d.cons.join(' | ') : ''].filter(Boolean).join('\n');
+}
+// ── Investor-checklist extras (standalone analyser): sector, about, shareholding, pledge, peers, fair value, 12-point checklist ──
+const xNum = v => { if (v == null) return null; const n = parseFloat(String(v).replace(/[,₹%\s]/g, '')); return isFinite(n) ? n : null; };
+const xMed = a => { a = a.filter(v => v != null && isFinite(v)).sort((p, q) => p - q); if (!a.length) return null; const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+function saExtras(raw) {
+  const MON = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4}$/i, X = { sector:'', industry:'', about:'', sh:null, shY:null, pledged:null, peers:null };
+  const text = /<\/?(?:tr|td|div|html|body)\b/i.test(raw) ? saHtml(raw) : raw, flat = text.replace(/[*_`]/g, '').replace(/\s+/g, ' ');
+  // sector / industry: Screener links them as /market/IN06/ (sector) → /market/IN06/IN0603/ … (industry levels)
+  const links = [];
+  for (const m of raw.matchAll(/\[([^\]\n]{2,60})\]\((?:https?:\/\/(?:www\.)?screener\.in)?\/market\/(IN\d+(?:\/IN\d+)*)\/?[^)]*\)/g)) links.push([m[2].split('/').length, m[1].trim()]);
+  for (const m of raw.matchAll(/<a[^>]+href="(?:https?:\/\/(?:www\.)?screener\.in)?\/market\/(IN\d+(?:\/IN\d+)*)\/?[^"]*"[^>]*>([^<]{2,60})<\/a>/g)) links.push([m[1].split('/').length, m[2].trim()]);
+  const trail = []; links.sort((a, b) => a[0] - b[0]).forEach(([, t]) => { if (!trail.includes(t)) trail.push(t); });
+  X.sector = trail[0] || ''; X.industry = trail.slice(1).join(' > ');
+  const pl = flat.match(/Pledged percentage\s*([\d.]+)\s*%/i); if (pl) X.pledged = xNum(pl[1]);
+  // About paragraph
+  const lines = text.split(/\r?\n/).map(l => (!l.includes('|') && l.includes('\t')) ? '|' + l.replace(/\t/g, '|') + '|' : l), plain = lines.map(l => l.replace(/^[#>\-*\s]+/, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/[*_`]/g, '').trim());
+  const STOP = /^(key points|pros|cons|peer comparison|quarterly results|profit & loss|read more|show more)/i;
+  for (let i = 0; i < plain.length && !X.about; i++) if (/^about$/i.test(plain[i])) { let t = ''; for (let j = i + 1; j < plain.length && t.length < 700; j++) { if (!plain[j]) continue; if (STOP.test(plain[j])) break; t += (t ? ' ' : '') + plain[j]; } if (t.length > 60) X.about = t.slice(0, 700); }
+  if (!X.about) { const m = flat.match(/\bAbout\s+(.{80,900}?)\s+(?:Key Points|Pros\b|Cons\b|Peer comparison)/i); if (m) X.about = m[1].slice(0, 700); }
+  // Tables under "Shareholding Pattern" and "Peer comparison"
+  let sec = '', peerHdr = null; const shT = [], peerRows = [];
+  lines.forEach((line, li) => {
+    if (!line.includes('|')) { const p = plain[li].toLowerCase(); if (/^peer comparison/.test(p)) sec = 'peer'; else if (/^shareholding pattern/.test(p)) sec = 'sh'; else if (/^(quarterly results|profit & loss|balance sheet|cash flows?|ratios|documents|pros|cons)$/.test(p)) sec = ''; return; }
+    const c = line.split('|').map(x => x.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/[*_`]/g, '').replace(/ /g, ' ').trim());
+    if (line.trim().startsWith('|')) c.shift(); if (line.trim().endsWith('|')) c.pop();
+    if (c.length < 3 || /^:?-+:?$/.test(c[0])) return;
+    if (sec === 'sh') {
+      const hdr = c.slice(1).filter(x => MON.test(x));
+      if (hdr.length >= 2 && hdr.length >= c.length - 2) { shT.push({ cols:c.slice(1), rows:{} }); return; }
+      const t = shT[shT.length - 1], label = c[0].replace(/\s*[+\-]\s*$/, '').replace(/\s+/g, ' ').trim(); if (t && label && !t.rows[label]) t.rows[label] = c.slice(1).map(xNum);
+    } else if (sec === 'peer') {
+      if (/^S\.?\s*No/i.test(c[0])) { peerHdr = c.map(x => x.toLowerCase()); return; }
+      if (peerHdr && !/median|average/i.test(c.slice(0, 2).join(' '))) peerRows.push(c);
+    }
+  });
+  const shape = t => { if (!t) return null; const key = re => Object.keys(t.rows).find(l => re.test(l)), g = re => { const k = key(re); return k ? t.rows[k] : null; };
+    const o = { cols:t.cols, promoters:g(/^promoters?/i), fii:g(/^fiis?|foreign/i), dii:g(/^diis?|domestic/i), gov:g(/^government/i), pub:g(/^public/i) }; return o.promoters && o.promoters.some(v => v != null) ? o : null; };
+  X.sh = shape(shT[0]); X.shY = shape(shT[1]);
+  if (peerHdr && peerRows.length) {
+    const ix = re => peerHdr.findIndex(h => re.test(h));
+    const I = { name:1, cmp:ix(/cmp/), pe:ix(/p\/e/), mcap:ix(/mar cap|market cap/), roce:ix(/roce/), sv:ix(/qtr sales var/), pv:ix(/qtr profit var/) }, cell = (r, i) => i >= 0 ? xNum(r[i]) : null;
+    X.peers = { rows:peerRows.map(r => ({ name:r[I.name] || r[1] || '', cmp:cell(r, I.cmp), pe:cell(r, I.pe), mcap:cell(r, I.mcap), roce:cell(r, I.roce), sv:cell(r, I.sv), pv:cell(r, I.pv) })).filter(r => r.name) };
+  }
+  return X;
+}
+const _saParse0 = saParse; saParse = function (raw) { const d = _saParse0(raw); if (d) { try { d.X = saExtras(raw); } catch (e) { d.X = null; } } return d; };
+// peers other than the company itself (its own row has the same price and P/E), plus medians
+function peerStats(d) {
+  const P = d.X && d.X.peers; if (!P) return null; const k = d.k;
+  const others = P.rows.filter(r => !(r.cmp != null && k.price && Math.abs(r.cmp - k.price) / k.price < 0.01 && (r.pe == null || !k.pe || Math.abs(r.pe - k.pe) / k.pe < 0.1)));
+  if (!others.length) return null;
+  const pes = others.map(r => r.pe).filter(v => v != null && v > 0), cheaper = k.pe ? pes.filter(v => v > k.pe).length : null;
+  return { n:others.length, names:others.slice(0, 6), medPE:xMed(pes), medROCE:xMed(others.map(r => r.roce)), medSV:xMed(others.map(r => r.sv)), medPV:xMed(others.map(r => r.pv)), cheaperPeers:cheaper, pePeers:pes.length };
+}
+function shTrend(sh) {
+  if (!sh) return null; const p = sh.promoters, idx = []; p.forEach((v, i) => { if (v != null) idx.push(i); }); if (!idx.length) return null;
+  const li = idx[idx.length - 1], ago = idx.length > 4 ? idx[idx.length - 5] : idx[0], at = i => sh.cols[i];
+  return { now:p[li], nowAt:at(li), ago:p[ago], agoAt:at(ago), chg:+(p[li] - p[ago]).toFixed(1), series:idx.slice(-6).map(i => `${at(i).slice(0, 3)} ${at(i).slice(-2)}=${p[i]}%`).join(', '),
+    last:a => a && a[li] != null ? a[li] : null };
+}
+function saFair(d, x) {
+  const k = d.k, eps = x.eps, ps = peerStats(d), o = { graham:null, peer:null, avg:null, mos:null };
+  if (eps > 0 && k.bv > 0) o.graham = Math.sqrt(22.5 * eps * k.bv);
+  if (eps > 0 && ps && ps.medPE > 0) o.peer = eps * ps.medPE;
+  const iv = [o.graham, o.peer].filter(v => v > 0); if (iv.length && k.price) { o.avg = iv.reduce((a, b) => a + b, 0) / iv.length; o.mos = (o.avg - k.price) / o.avg * 100; }
+  return o;
+}
+function extraDossier(d, x) {
+  const X = d.X || {}, k = d.k, L = [], f = saF, st = shTrend(X.sh), ps = peerStats(d), fv = saFair(d, x);
+  if (X.sector) L.push(`Sector: ${X.sector}${X.industry ? ' > ' + X.industry : ''}`);
+  if (X.about) L.push('About the company (Screener): ' + X.about);
+  if (st) { const l = st.last(X.sh.fii), dd = st.last(X.sh.dii), pu = st.last(X.sh.pub);
+    L.push(`Promoter holding: ${st.now}% (${st.nowAt}); ${st.chg >= 0 ? '+' : ''}${st.chg}pp versus ${st.ago}% in ${st.agoAt}. Trend: ${st.series}${l != null ? ` | FII ${l}%` : ''}${dd != null ? `, DII ${dd}%` : ''}${pu != null ? `, public ${pu}%` : ''}`); }
+  L.push(X.pledged != null ? `Pledged promoter shares: ${X.pledged}% of promoter holding` : (st ? 'Pledged promoter shares: not shown on the page (Screener usually lists a pledge only when one exists, so none is reported — unverified)' : ''));
+  if (ps) L.push(`Peers on Screener (${ps.n}): ` + ps.names.map(r => `${r.name} P/E ${f(r.pe)}, ROCE ${f(r.roce)}%`).join('; ') + ` | peer median P/E ${f(ps.medPE)}, ROCE ${f(ps.medROCE)}%, latest-quarter sales growth ${f(ps.medSV)}%, profit growth ${f(ps.medPV)}% | this stock: P/E ${f(k.pe)}${ps.pePeers ? `, cheaper than ${ps.cheaperPeers} of ${ps.pePeers} peers` : ''}, ROCE ${f(k.roce)}%`);
+  if (fv.avg) L.push(`Rough fair value (code-computed, not advice): ${fv.graham ? `Graham number ₹${f(fv.graham)} = √(22.5×EPS×book value; conservative, understates fast growers)` : ''}${fv.graham && fv.peer ? '; ' : ''}${fv.peer ? `EPS × peer median P/E = ₹${f(fv.peer)}` : ''} | average ₹${f(fv.avg)} versus price ₹${f(k.price)} → margin of safety ${f(fv.mos)}% (negative = trading above these values)`);
+  return L.filter(Boolean).length ? '\n' + L.filter(Boolean).join('\n') : '';
+}
+const _saDossier0 = saDossier; saDossier = (d, x) => _saDossier0(d, x) + extraDossier(d, x);
+const GOV_RE = /fraud|scam|forensic|sebi|probe|investigat|raid|\bED\b|\bCBI\b|auditor|resign|restat|default|insolv|nclt|pledg|manipulat|short.?seller|hindenburg|whistle|misappropriat|show.?cause|penalt|irregular/i;
+const REG_RE = /regulat|polic(y|ies)|tariff|duty|\bban\b|price cap|cess\b|\btax|licen[cs]e|subsid|mandate|norms|\bRBI\b|\bCCI\b|\bTRAI\b|\bCERC\b|ministry|govt|government|penalt|anti.?dumping/i;
+const CHK_CAT = { gov:'governance', sector:'sector outlook', reg:'policy/regulation' };
+// 12-point investor checklist: numbers are judged in code (reproducible); items marked JUDGE are for the curator to judge from the evidence listed.
+function buildChecklist(d, x, news) {
+  const X = d.X || {}, k = d.k, S6 = x.series, f = saF, rows = [], add = (id, item, status, ev) => rows.push({ id, item, status, ev });
+  const yoy = a => { let up = 0, n = 0; for (let i = 1; i < a.length; i++) if (a[i] != null && a[i - 1] != null) { n++; if (a[i] > a[i - 1]) up++; } return { up, n }; };
+  const sy = yoy(S6.sales), ey = yoy(S6.eps), cs = x.g.sales5, ce = x.g.eps5, items = (news && news.items) || [], fin = x.isFin;
+  add('1a', 'Revenue & EPS growth over 5+ years', sy.n < 3 ? 'NO DATA' : ((cs != null && cs <= 0) || (ce != null && ce <= 0)) ? 'FAIL' : (sy.up >= sy.n - 1 && ey.up >= ey.n - 1 && cs > 0 && ce > 0) ? 'PASS' : 'PARTIAL',
+    `sales up in ${sy.up}/${sy.n} years, EPS up in ${ey.up}/${ey.n}; 5y CAGR sales ${f(cs)}%, EPS ${f(ce)}%`);
+  const hasMoat = X.about || (d.pros && d.pros.length);
+  add('1b', 'Competitive edge (brand, patents, switching costs)', hasMoat ? 'JUDGE' : 'NO DATA', hasMoat ? `${X.sector ? 'sector ' + X.sector + '; ' : ''}${X.about ? 'about: ' + X.about.slice(0, 200) + '; ' : ''}${d.pros && d.pros.length ? 'site pros: ' + d.pros.slice(0, 2).join(' | ') : ''}`.slice(0, 520) : 'nothing on the page describes the moat; do not invent one');
+  const rr = S6.roe.filter(v => v != null).slice(-5), below = rr.filter(v => v < 15).length;
+  add('1c', 'ROE consistently above 15%', rr.length < 3 ? 'NO DATA' : below === 0 && rr.length >= 4 ? 'PASS' : below >= 3 ? 'FAIL' : 'PARTIAL', `ROE by year ${rr.join(', ')}%; site ROE ${f(k.roe)}%`);
+  const de = x.de;
+  add('2a', 'Debt-to-equity below 1', fin ? 'NO DATA' : de == null ? 'NO DATA' : de < 1 ? 'PASS' : de <= 1.5 ? 'PARTIAL' : 'FAIL', fin ? 'financial company, ratio not comparable' : `latest D/E ${f(de)}x; trend ${S6.de.filter(v => v != null).join(', ')}`);
+  const fc = S6.fcf.filter(v => v != null).slice(-3), fcOk = fc.length >= 2;
+  add('2b', 'Free cash flow positive and growing', fin || !fcOk ? 'NO DATA' : fc.every(v => v > 0) && fc[fc.length - 1] >= fc[0] ? 'PASS' : fc.every(v => v > 0) ? 'PARTIAL' : 'FAIL', fin ? 'financial company, not comparable' : `last years ${fc.join(', ')} ₹ Cr`);
+  const ic = S6.ic.filter(v => v != null).slice(-3), noDebt = x.de != null && x.de < 0.05;
+  add('2c', 'Interest coverage above 2', fin ? 'NO DATA' : !ic.length ? (noDebt ? 'PASS' : 'NO DATA') : ic[ic.length - 1] > 2 && Math.min(...ic) > 2 ? 'PASS' : ic[ic.length - 1] > 2 ? 'PARTIAL' : 'FAIL', fin ? 'financial company, not comparable' : ic.length ? `last years ${ic.join(', ')}x` : (noDebt ? 'virtually no debt, so no interest burden' : 'not computable'));
+  const st = shTrend(X.sh), pled = X.pledged;
+  let ps3 = 'NO DATA', ev3 = 'shareholding table not found on the page';
+  if (st) { ev3 = `promoters ${st.now}% (${st.chg >= 0 ? '+' : ''}${st.chg}pp in a year); pledged ${pled != null ? pled + '%' : 'none shown on page (unverified)'}`;
+    ps3 = pled > 5 ? 'FAIL' : pled > 0 ? 'PARTIAL' : st.now >= 50 ? (st.chg <= -3 ? 'PARTIAL' : 'PASS') : st.now >= 35 ? 'PARTIAL' : 'FAIL'; }
+  add('3a', 'Promoter holding high, pledged shares zero', ps3, ev3);
+  const gov = items.filter(n => GOV_RE.test(n.title)), conH = (d.cons || []).filter(t => /pledg|related party|contingent|auditor/i.test(t));
+  add('3b', 'Clean track record (no accounting or fraud flags)', gov.length || conH.length ? 'FLAG' : items.length ? 'NO FLAGS' : 'NO DATA',
+    gov.length || conH.length ? [...gov.slice(0, 3).map(n => `headline: ${n.title}`), ...conH.slice(0, 1).map(t => 'site con: ' + t)].join(' | ') : items.length ? `none of the ${items.length} headlines read mention fraud, probes or auditor issues (absence of news is not proof)` : 'no headlines available');
+  const sec = items.filter(n => n.cat === 'sector'), ps = peerStats(d), hasInd = X.sector || ps || sec.length;
+  add('4a', 'Industry growth tailwinds', hasInd ? 'JUDGE' : 'NO DATA', hasInd ? [X.sector && `sector ${X.sector}${X.industry ? ' > ' + X.industry : ''}`, ps && ps.medSV != null && `peer median latest-quarter sales growth ${f(ps.medSV)}%`, ...sec.slice(0, 2).map(n => 'headline: ' + n.title)].filter(Boolean).join(' | ') : 'sector not found and no sector headlines');
+  const reg = items.filter(n => n.cat === 'reg' ? REG_RE.test(n.title) || true : REG_RE.test(n.title)).filter(n => REG_RE.test(n.title));
+  add('4b', 'Low regulatory / policy risk', reg.length ? 'FLAG' : items.length ? 'NO FLAGS' : 'NO DATA', reg.length ? reg.slice(0, 3).map(n => 'headline: ' + n.title).join(' | ') : items.length ? 'no policy or regulation headlines among those read' : 'no headlines available');
+  const r = ps && ps.medPE > 0 && k.pe ? k.pe / ps.medPE : null, peg = x.peg;
+  add('5a', 'Fair P/E and PEG versus peers', r == null && peg == null ? 'NO DATA' : (r != null && r > 1.5) || (peg != null && peg > 2.5) ? 'FAIL' : (r == null || r <= 1.1) && (peg == null || peg <= 1.5) ? 'PASS' : 'PARTIAL',
+    `P/E ${f(k.pe)}${ps && ps.medPE ? ` vs peer median ${f(ps.medPE)} (${f(r)}×)` : ' (no peer table found)'}; PEG ${f(peg)}`);
+  const fv = saFair(d, x);
+  add('5b', 'Margin of safety versus intrinsic value', fv.mos == null ? 'NO DATA' : fv.mos >= 20 ? 'PASS' : fv.mos >= -10 ? 'PARTIAL' : 'FAIL', fv.avg ? `price ₹${f(k.price)} vs rough fair value ₹${f(fv.avg)} (${[fv.graham && 'Graham ₹' + f(fv.graham), fv.peer && 'peer-P/E ₹' + f(fv.peer)].filter(Boolean).join(', ')}) → ${f(fv.mos)}%` : 'EPS or book value missing');
+  return rows;
+}
+const checklistText = rows => 'INVESTOR CHECKLIST (statuses are computed in code from the scraped data; JUDGE means you must judge from the evidence shown):\n' + rows.map(r => `${r.id} ${r.item}: ${r.status} — ${r.ev}`).join('\n');
+const CHK_COL = { PASS:'var(--green)', 'NO FLAGS':'var(--green)', PARTIAL:'var(--amber)', FAIL:'var(--red)', FLAG:'var(--red)', JUDGE:'var(--purple)', 'NO DATA':'var(--muted)' };
+function renderChecklist() {
+  const el = R('check'); if (!el || !S.checks) return; const c = S.checks, cnt = s => c.filter(r => r.status === s).length;
+  el.innerHTML = `<div class="card"><details open><summary><b>✅ Investor checklist</b> <span class="muted">· ${cnt('PASS') + cnt('NO FLAGS')} pass · ${cnt('PARTIAL')} partial · ${cnt('FAIL') + cnt('FLAG')} fail/flag · ${cnt('JUDGE')} for the curator · ${cnt('NO DATA')} no data — computed in code from the scraped page and headlines</span></summary>
+    <div style="overflow-x:auto; margin-top:8px;"><table class="t"><thead><tr><th class="l">#</th><th class="l">Check</th><th class="l">Status</th><th class="l">Evidence</th></tr></thead><tbody>${c.map(r => `<tr><td class="l">${r.id}</td><td class="l">${esc(r.item)}</td><td class="l"><b style="color:${CHK_COL[r.status]}">${r.status}</b></td><td class="l" style="white-space:normal; min-width:260px;">${esc(r.ev)}</td></tr>`).join('')}</tbody></table></div></details></div>`;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Settings persistence (every control with data-k)
+// ═══════════════════════════════════════════════════════════════════════════
+const DEFAULT_SYS = 'You are a senior equity research associate. Write ONLY the briefing section of a prompt for a separate decision AI. Use ONLY the supplied data: copy figures verbatim, never invent numbers, news or peers. Headlines are unverified web snippets — mention them only as "headline says …" and never treat them as confirmed facts. Plain text with short labelled paragraphs, no JSON, max 650 words.';
+function resetSys() { $('cSys').value = DEFAULT_SYS; store.set('sa2_cSys', DEFAULT_SYS); }
+document.querySelectorAll('[data-k]').forEach(el => {
+  const key = 'sa2_' + el.dataset.k, v = store.get(key, null);
+  if (v != null) { if (el.type === 'checkbox') el.checked = !!v; else el.value = v; }
+  el.addEventListener('change', () => store.set(key, el.type === 'checkbox' ? el.checked : el.value));
+});
+if (!$('cSys').value) $('cSys').value = DEFAULT_SYS;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Ollama
+// ═══════════════════════════════════════════════════════════════════════════
+let ctl = null; const noThink = {}; let MODELS = [];
+// Stop must cancel every request of the running analysis (scraping, news, Ollama) — not just the model call.
+const _origFetch = window.fetch.bind(window);
+window.fetch = (u, o = {}) => {
+  if (!ctl) return _origFetch(u, o);
+  const g = ctl.signal; if (!o.signal) return _origFetch(u, { ...o, signal: g });
+  if (AbortSignal.any) return _origFetch(u, { ...o, signal: AbortSignal.any([o.signal, g]) });
+  const c = new AbortController(), f = () => c.abort(); g.aborted ? c.abort() : g.addEventListener('abort', f, { once: true }); o.signal.addEventListener('abort', f, { once: true });
+  return _origFetch(u, { ...o, signal: c.signal });
+};
+const stopCheck = () => { if (typeof cancelAll !== 'undefined' && cancelAll) throw new Error('Stopped'); };
+const olBase = () => ($('olUrl').value.trim() || 'http://localhost:11434').replace(/\/+$/, '').replace(/\/api$/, '');
+function olSay(m, c) { const e = $('olStatus'); e.textContent = m; e.className = 'state ' + (c || ''); }
+
+function fillModelSelect(prefix) {
+  const sel = $(prefix + 'Model'), cust = $(prefix + 'ModelCustom'), saved = store.get('sa2_' + prefix + 'Model', '');
+  sel.innerHTML = MODELS.map(m => `<option value="${esc(m.name)}">${esc(m.label)}</option>`).join('') + '<option value="__custom">✏️ Other (type a name)…</option>';
+  if (saved && [...sel.options].some(o => o.value === saved)) sel.value = saved;
+  else if (MODELS.length) sel.value = (MODELS.find(m => m.name === store.get('sa2_cModel', '')) || MODELS[0]).name;
+  else sel.value = '__custom';
+  cust.hidden = sel.value !== '__custom';
+}
+function wireModelSelect(prefix) { $(prefix + 'Model').addEventListener('change', () => { $(prefix + 'ModelCustom').hidden = $(prefix + 'Model').value !== '__custom'; }); }
+function getModel(prefix) { const v = $(prefix + 'Model').value; return (v === '__custom' ? $(prefix + 'ModelCustom').value : v).trim(); }
+wireModelSelect('c'); wireModelSelect('d'); fillModelSelect('c'); fillModelSelect('d');
+
+async function olDetect() {
+  const say = olSay; say('Contacting Ollama…');
+  const norm = u => { u = String(u || '').trim().replace(/\/+$/, ''); if (u && !/^https?:\/\//i.test(u)) u = 'http://' + u; return u.replace(/\/api$/, ''); };
+  const cands = [...new Set([norm($('olUrl').value), 'http://127.0.0.1:11434', 'http://localhost:11434', 'http://[::1]:11434'].filter(Boolean))];
+  const withTimeout = (url, opt) => { const c = new AbortController(), t = setTimeout(() => c.abort(), 4000); return fetch(url, { ...opt, signal: c.signal }).finally(() => clearTimeout(t)); };
+  let blocked = null, lastErr = '';
+  for (const base of cands) {
+    try {
+      const r = await withTimeout(base + '/api/tags');
+      if (!r.ok) { lastErr = `${base} answered HTTP ${r.status}`; continue; }
+      const list = ((await r.json()).models || []);
+      $('olUrl').value = base; store.set('sa2_url', base);
+      // /api/tags also lists embedding-only models, which cannot chat ("does not support chat"). Ask /api/show for each model's
+      // capabilities (Ollama 0.6+) and keep only those that can generate text; fall back to a name check on older versions.
+      say('Checking which models can chat…');
+      const caps = await Promise.all(list.map(async m => {
+        try { const c = new AbortController(), t = setTimeout(() => c.abort(), 6000);
+          const rr = await fetch(base + '/api/show', { method:'POST', signal:c.signal, headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ model:m.name }) }).finally(() => clearTimeout(t));
+          return rr.ok ? ((await rr.json()).capabilities || null) : null; } catch (e) { return null; }
+      }));
+      const EMB = /embed|bge-|minilm|nomic|(^|\/)e5-|gte-|arctic-embed/i, skipped = [];
+      MODELS = list.filter((m, i) => { const chat = TEV.test(m.name) || (caps[i] ? caps[i].some(c => /completion|decision|systemone/i.test(c)) : !EMB.test(m.name)); if (!chat) skipped.push(m.name); return chat; }).map(m => {
+        const gb = m.size ? (m.size / 1e9).toFixed(1) + ' GB' : '', ps = m.details && m.details.parameter_size || '';
+        return { name: m.name, label: m.name + (ps || gb ? ` · ${[ps, gb].filter(Boolean).join(' · ')}` : '') };
+      }).sort((a, b) => a.name.localeCompare(b.name));
+      fillModelSelect('c'); fillModelSelect('d');
+      const sk = skipped.length ? ` · hidden (not chat models): ${skipped.join(', ')}` : '';
+      if (!MODELS.length) { say('Ollama is running at ' + base + ' but has no chat models' + sk + ' — e.g. run:  ollama pull qwen2.5:7b', 'err'); return; }
+      say(`✔ Connected to ${base} — ${MODELS.length} chat model${MODELS.length > 1 ? 's' : ''} found${sk}`, 'ok'); log(`Ollama connected at ${base}: ${MODELS.map(m => m.name).join(', ')}${sk}`, 'ok'); return;
+    } catch (e) {
+      lastErr = `${base}: ${e.name === 'AbortError' ? 'timed out' : e.message}`;
+      if (!blocked) { try { await withTimeout(base + '/api/tags', { mode:'no-cors' }); blocked = base; } catch (e2) {} }   // opaque success ⇒ server is up, browser blocked the reply
+    }
+  }
+  let msg;
+  if (location.protocol === 'https:') msg = '✖ This page is open over https — browsers block calls from https pages to a local http Ollama. Open the saved file from your PC (or via http://localhost).';
+  else if (blocked) msg = `✖ Ollama IS running at ${blocked}, but the browser blocked the reply (CORS). Set OLLAMA_ORIGINS=* and fully restart Ollama, or serve this page from http://localhost (see “Can’t connect?” below).`;
+  else msg = `✖ Nothing reachable at ${cands.join(' / ')} (${lastErr}). Check that http://127.0.0.1:11434 opens in this browser, or fix the URL above.`;
+  say(msg, 'err'); log(msg, 'err');
+}
+
+const stripThink = t => String(t || '').replace(/<think>[\s\S]*?<\/think>/g, '').replace(/<think>[\s\S]*$/, '').trim();
+function extractJson(text) {
+  let t = stripThink(text).replace(/```(?:json)?/gi, '');
+  const a = t.indexOf('{'), b = t.lastIndexOf('}');
+  if (a === -1 || b <= a) throw new Error('The model did not return JSON.');
+  return JSON.parse(t.slice(a, b + 1));
+}
+// One streamed /api/chat call. o = { model, system, prompt, format?, temperature, num_ctx, num_predict, think, onToken? }
+async function olChat(o) {
+  const model = o.model; if (!model) throw new Error('No model chosen for this step — pick one in its section.');
+  const messages = (o.system ? [{ role:'system', content:o.system }] : []).concat([{ role:'user', content:o.prompt }]);
+  const build = (useThink, fmt) => JSON.stringify({ model, stream:true, messages, ...(fmt ? { format:fmt } : {}), ...(useThink ? { think:!!o.think } : {}),
+    options:{ temperature:o.temperature, num_ctx:o.num_ctx, num_predict:o.num_predict } });
+  const signal = ctl ? ctl.signal : undefined;
+  let useThink = !noThink[model], fmt = o.format || null, res, tries = 0;
+  try {
+    while (true) {
+      res = await fetch(olBase() + '/api/chat', { method:'POST', signal, headers:{ 'Content-Type':'application/json' }, body:build(useThink, fmt) });
+      if (res.ok) break;
+      const t = await res.text(); tries++;
+      if (tries < 3 && useThink && /think/i.test(t)) { noThink[model] = true; useThink = false; continue; }          // model has no thinking switch
+      if (tries < 3 && fmt && typeof fmt === 'object' && /format|schema|grammar/i.test(t)) { log('This Ollama version rejected the JSON schema — falling back to plain JSON mode', 'warn'); fmt = 'json'; continue; }
+      if (/does not support (chat|generate)/i.test(t)) throw new Error(`“${model}” is not a chat model (it is probably an embedding model). Choose a different model for this step.`);
+      throw new Error(`Ollama ${res.status}: ${t.slice(0, 300)}` + (/not found/i.test(t) ? ` — run:  ollama pull ${model}` : ''));
+    }
+    const reader = res.body.getReader(), dec = new TextDecoder('utf-8');
+    let content = '', thinking = '', buf = '', truncated = false;
+    const handle = ln => {
+      if (!ln.trim()) return; let j; try { j = JSON.parse(ln); } catch (e) { return; }
+      if (j.error) throw new Error('Ollama: ' + j.error);
+      const m = j.message || {};
+      if (m.thinking) thinking += m.thinking;
+      if (m.content) content += m.content;
+      if ((m.content || m.thinking) && o.onToken) o.onToken(content, thinking.length, thinking);
+      if (j.done && j.done_reason === 'length') truncated = true;
+    };
+    while (true) { const { value, done } = await reader.read(); if (done) break; buf += dec.decode(value, { stream:true }); const ls = buf.split('\n'); buf = ls.pop() || ''; ls.forEach(handle); }
+    handle(buf);
+    return { content:stripThink(content), raw:content, thinking, truncated };
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('Stopped');
+    if (e.message === 'Failed to fetch') throw new Error(`Could not reach Ollama at ${olBase()} — click “Connect & detect models” for a diagnosis.`);
+    throw e;
+  }
+}
+// small status ticker: "label… 12s · 1,204 chars"
+function ticker(el, label) {
+  const t0 = Date.now(); let chars = 0;
+  const paint = () => { el.className = 'state run'; el.innerHTML = `<span class="spin"></span>${esc(label)} ${Math.round((Date.now() - t0) / 1000)}s${chars ? ' · ' + chars.toLocaleString('en-IN') + ' chars' : ''}`; };
+  paint(); const iv = setInterval(paint, 1000);
+  return { set(n) { chars = n; }, stop(txt, cls) { clearInterval(iv); el.className = 'state ' + (cls || ''); el.textContent = txt || ''; } };
+}
+const cOpts = () => ({ model:getModel('c'), temperature:parseFloat($('cTemp').value) || 0.3, num_ctx:parseInt($('cCtx').value) || 8192, num_predict:parseInt($('cTok').value) || 2500, think:$('cThink').value === 'on' });
+const dOpts = () => ({ model:getModel('d'), temperature:parseFloat($('dTemp').value) || 0.3, num_ctx:parseInt($('dCtx').value) || 8192, num_predict:900, think:$('dThink').value === 'on' });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Web research (news) — the page fetches it, so any local model can "use the web"
+// ═══════════════════════════════════════════════════════════════════════════
+// Google News has no CORS headers, so it goes through proxies. Proxies are flaky, so all routes are RACED in parallel with a short
+// timeout (first good answer wins) instead of being tried one after another; GDELT (which allows browser calls) is the fallback.
+const NEWS_MS = 9000, NEWS_CACHE = new Map(); let codetabsDead = false;
+const NEWS_RSS = q => `https://news.google.com/rss/search?q=${encodeURIComponent(q + ' when:90d')}&hl=en-IN&gl=IN&ceid=IN:en`;
+const sleep = ms => new Promise((res, rej) => { const t = setTimeout(res, ms), k = setInterval(() => { if (cancelAll) { clearTimeout(t); clearInterval(k); rej(new Error('Stopped')); } }, 120); setTimeout(() => clearInterval(k), ms + 50); });
+function newsItem(raw, src, date, link) {
+  raw = String(raw || '').replace(/<!\[CDATA\[|\]\]>/g, '').trim(); src = String(src || '').replace(/<!\[CDATA\[|\]\]>/g, '').trim();
+  const title = src && raw.endsWith(' - ' + src) ? raw.slice(0, -(src.length + 3)) : raw;
+  return { title:title.trim(), source:src, date:String(date || '').trim(), link:String(link || '').trim() };
+}
+function parseNewsText(txt) {
+  let x = String(txt || ''), items = [];
+  const a = x.search(/<\?xml|<rss/i), b = x.lastIndexOf('</rss>'); if (a >= 0 && b > a) x = x.slice(a, b + 6);   // strip wrappers added by proxies
+  try { items = [...new DOMParser().parseFromString(x, 'text/xml').querySelectorAll('item')].map(it => { const g = t => (it.querySelector(t) || {}).textContent || ''; return newsItem(g('title'), g('source') || ((it.getElementsByTagName('News:Source')[0] || {}).textContent || ''), g('pubDate'), g('link')); }); } catch (e) {}
+  if (!items.length) items = [...x.matchAll(/<item>([\s\S]*?)<\/item>/gi)].map(m => { const g = t => ((m[1].match(new RegExp('<' + t + '[^>]*>([\\s\\S]*?)</' + t + '>', 'i')) || [])[1] || ''); return newsItem(g('title'), g('source'), g('pubDate'), g('link')); });
+  if (!items.length) items = [...x.matchAll(/\[([^\]\n]{25,220})\]\((https?:\/\/[^)\s]+)\)/g)].filter(m => !/google\.com\/(rss|search)/i.test(m[2])).map(m => newsItem(m[1], '', '', m[2]));   // Jina returns markdown links
+  return items.filter(n => n.title.length > 8).slice(0, 8);
+}
+const NEWS_BING = q => `https://www.bing.com/news/search?q=${encodeURIComponent(q)}&format=RSS&cc=IN&setlang=en-IN`;
+// Two independent sources (Google News, then Bing News as backup) × several proxies. Each route is [name, fetcher, startDelayMs].
+function newsRoutes(q, noDelay) {
+  const r = [], dl = ms => noDelay ? 0 : ms;
+  const via = (src, url, d0) => {
+    const enc = encodeURIComponent(url), t = src + ' · ';
+    if (localProxyOk) r.push([t + 'local-proxy', () => fetchDirect(`${LOCAL_PROXY}/proxy?url=${enc}`, NEWS_MS), d0]);
+    r.push([t + 'allorigins', () => fetchDirect(`https://api.allorigins.win/raw?url=${enc}`, NEWS_MS), d0]);
+    r.push([t + 'corsproxy', () => fetchDirect(`https://corsproxy.io/?url=${enc}`, NEWS_MS), d0]);
+    r.push([t + 'jina-reader', () => saGet(`https://r.jina.ai/${url}`, NEWS_MS, {}), d0 + dl(300)]);
+    r.push([t + 'allorigins-json', async () => (JSON.parse(await fetchDirect(`https://api.allorigins.win/get?url=${enc}`, NEWS_MS)).contents) || '', d0 + dl(600)]);
+    if (!codetabsDead) r.push([t + 'codetabs', async () => { try { return await fetchDirect(`https://api.codetabs.com/v1/proxy?quest=${enc}`, NEWS_MS); } catch (e) { if (e.message === 'Failed to fetch') codetabsDead = true; throw e; } }, d0 + dl(600)]);
+  };
+  via('Google', NEWS_RSS(q), 0); via('Bing', NEWS_BING(q), dl(2500));
+  return r;
+}
+async function raceRoutes(routes) {
+  const errs = [];
+  const tries = routes.map(([name, fn, delay]) => (async () => {
+    if (delay) await sleep(delay); const t0 = Date.now();
+    try { const items = parseNewsText(await fn()); if (!items.length) throw new Error('no articles in the response'); return { name, ms:Date.now() - t0, items }; }
+    catch (e) { errs.push(`${name}: ${e.name === 'AbortError' ? 'timeout' : e.message}`); throw e; }
+  })());
+  try { return await Promise.any(tries); } catch (e) { throw new Error(errs.join('; ') || 'no route answered'); }
+}
+const gdeltDate = d => { const m = String(d || '').match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/); return m ? `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z` : ''; };
+let gdeltLast = 0, gdeltChain = Promise.resolve();
+const gdeltFetch = q => (gdeltChain = gdeltChain.catch(() => {}).then(async () => {   // GDELT allows ~1 request per 5 s
+  const w = gdeltLast + 5600 - Date.now(); if (w > 0) await sleep(w);
+  try { return await gdeltOnce(q); } catch (e) { await sleep(5600); return await gdeltOnce(q); } finally { gdeltLast = Date.now(); }
+}));
+async function gdeltOnce(q) {
+  const t0 = Date.now(), clean = q.replace(/\b(OR|AND)\b/g, ' ').replace(/[()"]/g, ' ').replace(/\s+/g, ' ').trim();
+  const txt = await fetchDirect(`https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(clean + ' sourcelang:english')}&mode=artlist&format=json&maxrecords=10&sort=datedesc&timespan=3months`, 12000);
+  let j; try { j = JSON.parse(txt); } catch (e) { throw new Error('GDELT said: ' + txt.replace(/\s+/g, ' ').slice(0, 120)); }
+  const items = (j.articles || []).map(a => newsItem(a.title, a.domain, gdeltDate(a.seendate), a.url)).filter(n => n.title.length > 8).slice(0, 8);
+  if (!items.length) throw new Error('GDELT returned no articles');
+  return { name:'GDELT', ms:Date.now() - t0, items };
+}
+async function newsFetch(q) {
+  const hit = NEWS_CACHE.get(q); if (hit && Date.now() - hit.t < 15 * 60e3) { log(`“${q}”: ${hit.items.length} headlines (cached)`); return hit.items; }
+  let res;
+  stopCheck();
+  try { res = await raceRoutes(newsRoutes(q)); log(`“${q}”: ${res.items.length} headlines via ${res.name} in ${(res.ms / 1000).toFixed(1)}s`, 'ok'); }
+  catch (e) {
+    stopCheck();
+    log(`“${q}”: Google News routes failed (${e.message}) — trying GDELT`, 'warn');
+    try { res = await gdeltFetch(q); log(`“${q}”: ${res.items.length} headlines via GDELT in ${(res.ms / 1000).toFixed(1)}s`, 'ok'); }
+    catch (e2) { stopCheck(); throw new Error(`${e.message}; ${e2.message}`); }
+  }
+  NEWS_CACHE.set(q, { t:Date.now(), items:res.items }); return res.items;
+}
+// "test news sources": shows which routes work from YOUR network and how fast
+async function newsDiag() {
+  if (!activeProxies.length) { localProxyOk = await probeLocalProxy(); buildProxyList(); }
+  log('News source test with “Reliance Industries” — each route has a 9 s limit…');
+  await Promise.all(newsRoutes('Reliance Industries', true).map(async ([name, fn]) => {
+    const t0 = Date.now(), sec = () => ((Date.now() - t0) / 1000).toFixed(1) + 's';
+    try { const n = parseNewsText(await fn()).length; log(`${name}: ${n ? '✔ ' + n + ' articles' : '✖ answered but no articles found'} in ${sec()}`, n ? 'ok' : 'warn'); }
+    catch (e) { log(`${name}: ✖ ${e.name === 'AbortError' ? 'timeout' : e.message} (${sec()})`, 'err'); }
+  }).concat((async () => { try { const g = await gdeltFetch('Reliance Industries'); log(`GDELT (fallback): ✔ ${g.items.length} articles in ${(g.ms / 1000).toFixed(1)}s`, 'ok'); } catch (e) { log('GDELT (fallback): ✖ ' + e.message, 'err'); } })()));
+  log('News source test finished — if every route failed, run  node scraper_proxy.js  next to this file (it fetches news from your own PC).', 'info');
+}
+// ── Curator reasoning trace (shown live in the Curator card) ──
+function jstr(t, k) { const m = t.match(new RegExp('"' + k + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)("|$)')); return m ? m[1].replace(/\\n/g, ' ').replace(/\\"/g, '"') : null; }
+const inlineThink = c => (c.match(/<think>([\s\S]*?)(<\/think>|$)/) || [])[1] || '';
+// Reply format: "WORKING NOTES …" then a line "=== BRIEFING ===" then the briefing. Models that ignore the format just produce the briefing.
+function splitCur(t) {
+  const m = t.match(/\n?\s*={2,}\s*BRIEFING\s*={2,}\s*\n?/i), head = /^\s*[#*\s]*WORKING NOTES[:*\s]*/i;
+  if (m) return { notes:t.slice(0, m.index).replace(head, '').trim(), brief:t.slice(m.index + m[0].length).trim(), inBrief:true };
+  if (head.test(t)) return { notes:t.replace(head, '').trim(), brief:'', inBrief:false };
+  return { notes:'', brief:t, inBrief:true };
+}
+function curTraceHtml(T) {
+  T = T || {};
+  const box = (id, txt) => txt ? `<div class="muted" style="margin-top:6px;">💭 Thinking trace from the model</div><div class="think" data-r="${id}">${esc(txt)}</div>` : '';
+  const step = (n, title, state, body) => `<div style="margin:10px 0; padding:10px 12px; background:var(--card2); border-radius:10px;"><div class="row" style="justify-content:space-between;"><b style="font-size:0.84rem;">${n} · ${title}</b><span class="muted">${state}</span></div>${body}</div>`;
+  const st = d => d ? '✔ done' : '<span class="spin"></span>working…';
+  let h = '';
+  if (T.plan) { const q = T.plan; h += step(1, 'Planning the web searches', st(q.done), box('thinkPlan', q.thinking) + (q.rationale ? `<div class="live-f"><b>Why these searches:</b> ${esc(q.rationale)}${q.done ? '' : '<span class="caret"></span>'}</div>` : '') + (q.queries && q.queries.length ? `<div style="margin-top:4px;">${q.queries.map(x => `<span class="chip">🔎 ${esc(x)}</span>`).join('')}</div>` : '') + (q.note ? `<div class="muted" style="margin-top:4px;">${esc(q.note)}</div>` : '')); }
+  if (T.web) h += step(2, 'Web research', T.web.done ? '✔ done' : '<span class="spin"></span>fetching…', `<div class="live-f">${esc(T.web.text || '')}</div>`);
+  if (T.write) { const w = T.write; h += step(3, 'Writing the briefing', st(w.done), box('thinkWrite', w.thinking) + (w.notes ? `<div class="live-f"><b>Working notes:</b></div><div class="live-f" style="white-space:pre-wrap; margin-top:0;">${esc(w.notes)}${w.done || w.inBrief ? '' : '<span class="caret"></span>'}</div>` : '') + (w.done && !w.thinking && !w.notes ? '<div class="muted" style="margin-top:4px;">This model sent no thinking trace and wrote no working notes — the briefing below is its whole output. Turn “Thinking” on for reasoning models.</div>' : '')); }
+  return h;
+}
+let tracePending = false;
+function paintTrace() {
+  if (tracePending) return; tracePending = true; const root = ROOT, st = S;
+  requestAnimationFrame(() => {
+    tracePending = false; sideCur(st); const el = R('curTrace', root); if (!el || !st) return;
+    const keep = ['thinkPlan', 'thinkWrite'].map(id => { const b = R(id, root); return [id, !b || b.scrollTop + b.clientHeight >= b.scrollHeight - 24]; });
+    el.innerHTML = curTraceHtml(st.trace); keep.forEach(([id, atEnd]) => { const b = R(id, root); if (b && atEnd) b.scrollTop = b.scrollHeight; });
+  });
+}
+async function planQueries(d) {
+  const name = d.name;
+  const fallback = [`${name} share`, `${name} quarterly results`, `${name} debt OR rating OR lawsuit OR regulator`];
+  if (!$('optPlan').checked) { S.trace.plan = { done:true, queries:fallback, note:'Fixed searches — “Curator chooses the searches” is off.' }; paintTrace(); return fallback; }
+  const o = cOpts(), P = S.trace.plan = { thinking:'', rationale:'', queries:[], done:false }; paintTrace();
+  try {
+    const r = await olChat({ ...o, num_predict:o.think ? 2500 : 450, format:{ type:'object', properties:{ rationale:{ type:'string' }, queries:{ type:'array', items:{ type:'string' }, maxItems:3 } }, required:['rationale', 'queries'] },
+      system:'You plan web news searches for an equity analyst. Reply with one JSON object only.',
+      prompt:`Company: ${name} (NSE/BSE listed, India). Scraped headline facts: P/E ${saF(d.k.pe)}, ROE ${saF(d.k.roe)}%, market cap ₹${saF(d.k.mcap)} Cr.\nGive up to 3 short Google News search queries (each under 8 words, always including the company name) that would reveal things the financial statements cannot show, e.g. latest results, funding/debt/rating actions, legal or regulatory trouble, big orders, management or sector outlook. First give a one or two sentence "rationale" explaining why these searches matter for this particular company. JSON: {"rationale":"…","queries":["…","…","…"]}`,
+      onToken:(c, thN, thText) => { P.thinking = thText || inlineThink(c); const m = jstr(stripThink(c), 'rationale'); if (m != null) P.rationale = m; paintTrace(); } });
+    const j = extractJson(r.content), qs = (j.queries || []).map(x => String(x).trim()).filter(x => x.length > 3).slice(0, 3);
+    P.rationale = String(j.rationale || P.rationale || '').slice(0, 500); P.done = true;
+    if (qs.length) { P.queries = qs; paintTrace(); log(`Curator chose ${qs.length} searches: ${qs.map(x => '“' + x + '”').join(', ')}`, 'ai'); return qs; }
+    P.note = 'The curator returned no usable searches — using the default ones.';
+  } catch (e) { if (e.message === 'Stopped') throw e; P.note = 'Could not plan searches (' + e.message + ') — using the default ones.'; log('Curator could not plan searches (' + e.message + ') — using the default ones', 'warn'); }
+  P.done = true; P.queries = fallback; paintTrace(); return fallback;
+}
+async function webResearch(d) {
+  if (!$('optWeb').checked) { S.trace.web = { done:true, text:'Web research is switched off.' }; paintTrace(); return { queries:[], items:[] }; }
+  const queries = await planQueries(d), cats = queries.map(() => 'general');
+  if ($('optGov').checked) { const nm = d.name, X = d.X || {}, ind = (X.industry || '').split(' > ').pop() || X.sector || '';
+    [[`${nm} fraud OR SEBI OR auditor OR forensic OR pledge`, 'gov'], [`${ind ? ind + ' India' : nm} industry outlook demand growth`, 'sector'], [`${nm} regulation OR policy OR tariff OR penalty OR ban`, 'reg']].forEach(([q, c]) => { queries.push(q); cats.push(c); }); }
+  log(`Web research: ${queries.length} news searches via Google News`);
+  S.trace.web = { done:false, text:`Fetching ${queries.length} news searches via Google News…` }; paintTrace();
+  const res = await Promise.allSettled(queries.map((q, i) => sleep(i * 250).then(() => newsFetch(q)))), items = [], seen = new Set();
+  stopCheck();
+  res.forEach((r, i) => {
+    if (r.status !== 'fulfilled') { log(`“${queries[i]}” failed: ${r.reason.message}`, 'warn'); return; }
+    r.value.forEach(n => { const k = n.title.toLowerCase().slice(0, 60); if (!seen.has(k)) { seen.add(k); items.push({ ...n, q:queries[i], cat:cats[i] }); } });
+  });
+  if (!items.length && res.every(r => r.status === 'rejected')) log('No news source answered — continuing without web research (use “test news sources” to see which routes work from your network)', 'warn');
+  items.sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0));
+  const top = [...items.filter(n => n.cat === 'general').slice(0, 10), ...['gov', 'sector', 'reg'].flatMap(c => items.filter(n => n.cat === c).slice(0, 3))].sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)); if (top.length) log(`Found ${items.length} headlines, using the newest ${top.length}`, 'ok');
+  S.trace.web = { done:true, text:top.length ? `Found ${items.length} headline${items.length > 1 ? 's' : ''}; the newest ${top.length} go into the briefing.` : 'No headlines were available — the briefing uses the financial data only. Use “test news sources” in the options row to see which routes work from your network.' }; paintTrace();
+  return { queries, items:top };
+}
+const fmtDate = s => { const t = Date.parse(s); return t ? new Date(t).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : ''; };
+
+// ═══════════════════════════════════════════════════════════════════════════
+const TEV = /(^|\/)tev1(:|$)/i, isTev1 = m => TEV.test(m || '');   // Together AI's decision model: answers typed questions through /v1/systemone instead of chat
+// Typed questions for the Decision AI
+// ═══════════════════════════════════════════════════════════════════════════
+const Q = {
+  verdict: { instructions:'Should a long-term Indian retail investor invest in this stock at its current price, wait, or avoid it? Judge EPS trend, P/E versus growth, ROE, debt levels and cash flow together.',
+    criteria:{ INVEST:'Fundamentals are strong or improving and the valuation is reasonable for the growth; attractive to buy now.', WATCH:'A decent business, but valuation, trend or data gaps call for waiting or accumulating only on conditions.', AVOID:'Weak or deteriorating fundamentals, heavy debt, sustained losses or an unreasonable valuation.' } },
+  valuation: { labels:['Very expensive','Expensive','Fairly valued','Attractive','Very attractive'], instructions:'How attractive is the current valuation (P/E, P/B, P/E relative to growth) given the growth and returns in the data?' },
+  profitability: { labels:['Weak or loss-making','Below average','Average','Strong','Exceptional'], instructions:'How strong are EPS growth and the returns on equity (ROE, ROCE) shown in the data?' },
+  balance_sheet: { labels:['Dangerous leverage','Heavy debt','Moderate debt','Light debt','Almost debt-free'], instructions:'How safe are the debt levels, judged by debt/equity, borrowings trend and interest coverage? Higher means safer.' },
+  growth: { labels:['Shrinking','Stagnant','Moderate growth','Strong growth'], instructions:'How strong is multi-year growth in sales, net profit and EPS?' },
+  short_term: { labels:['Very unfavourable','Unfavourable','Neutral','Favourable','Very favourable'], instructions:'Outlook for the NEXT 3-12 MONTHS only: recent results momentum, the web headlines in the briefing, valuation stretch (a high P/E is a short-term risk), near-term risks and catalysts. Ignore the long-run story.' },
+  long_term: { labels:['Very unfavourable','Unfavourable','Neutral','Favourable','Very favourable'], instructions:'Outlook for the NEXT 3-5+ YEARS only: business quality, durability of ROE/ROCE, multi-year growth runway, debt safety and cash generation. Ignore short-term noise and headlines.' },
+  cash_backing: { instructions:'Chance (0-100) that reported net profit is consistently backed by operating cash flow (operating cash flow close to or above net profit in most years).' },
+  red_flags: { instructions:'Chance (0-100) that the data shows serious red flags such as sustained losses, rising debt with weak interest cover, or collapsing earnings.' }
+};
+$('qList').innerHTML = '<ul style="margin:6px 0 0; padding-left:18px;">' + Object.entries(Q).map(([k, q]) => `<li><b>${k.replace('_', ' ')}</b> — ${esc(q.instructions)}${q.labels ? ' <i>(0 = ' + esc(q.labels[0]) + ' … ' + (q.labels.length - 1) + ' = ' + esc(q.labels[q.labels.length - 1]) + ')</i>' : ''}</li>`).join('') + '</ul>';
+const intP = (max, extra) => ({ type:'integer', minimum:0, maximum:max, ...(extra || {}) });
+const DEC_SCHEMA = { type:'object', required:['analysis','thesis','strengths','risks','valuation','profitability','balance_sheet','growth','cash_backing','red_flags','short_term','short_note','long_term','long_note','probabilities','verdict','headline','action','change'], properties:{
+  analysis:{ type:'string' }, thesis:{ type:'string' }, strengths:{ type:'array', items:{ type:'string' }, maxItems:4 }, risks:{ type:'array', items:{ type:'string' }, maxItems:4 },
+  valuation:intP(4), profitability:intP(4), balance_sheet:intP(4), growth:intP(3), cash_backing:intP(100), red_flags:intP(100), short_term:intP(4), short_note:{ type:'string' }, long_term:intP(4), long_note:{ type:'string' },
+  probabilities:{ type:'object', required:['INVEST','WATCH','AVOID'], properties:{ INVEST:{ type:'number' }, WATCH:{ type:'number' }, AVOID:{ type:'number' } } },
+  verdict:{ type:'string', enum:['INVEST','WATCH','AVOID'] }, headline:{ type:'string' }, action:{ type:'string' }, change:{ type:'string' } } };
+const DEC_SYS = 'You are the decision AI for a cautious Indian equity research desk. Use ONLY the briefing and metrics supplied; never invent numbers. Never promise returns. Reply with one JSON object that follows the schema, nothing else.';
+function decPrompt(brief, metrics) {
+  const sc = k => `- ${k} (integer 0-${Q[k].labels.length - 1}): ${Q[k].instructions} ` + Q[k].labels.map((l, i) => `${i}=${l}`).join(', ');
+  return `${brief}\n\n---\nKEY METRICS (JSON): ${JSON.stringify(metrics)}\n\nYou are the decision AI. Answer these typed questions about the stock using only the information above. The briefing contains an INVESTOR CHECKLIST (growth, ROE, debt, cash flow, promoter holding and pledge, governance and policy headlines, peer valuation, margin of safety): treat a FAIL or FLAG as a real risk and NO DATA as unknown, never as good news.\n` +
+    `- verdict (INVEST | WATCH | AVOID): ${Q.verdict.instructions}  INVEST = ${Q.verdict.criteria.INVEST}  WATCH = ${Q.verdict.criteria.WATCH}  AVOID = ${Q.verdict.criteria.AVOID}\n` +
+    `- probabilities: your probability for each of INVEST, WATCH, AVOID; they must add up to 100 and agree with the verdict.\n` +
+    ['valuation', 'profitability', 'balance_sheet', 'growth'].map(sc).join('\n') + '\n' +
+    `- cash_backing (integer 0-100): ${Q.cash_backing.instructions}\n- red_flags (integer 0-100): ${Q.red_flags.instructions}\n` +
+    ['short_term', 'long_term'].map(sc).join('\n') + '\n- short_note and long_note: one sentence each (max 25 words) giving the main reason for that horizon score.\n' +
+    `Also write: thesis (max 60 words), strengths (max 4 short items), risks (max 4 short items), headline (max 20 words), action (max 40 words, e.g. staggered entry or what to wait for), change (max 30 words: what would change this view).\n` +
+    `Reason in the order of the schema. Start with "analysis": step-by-step reasoning in at most 130 words, going through valuation, profitability, debt, growth, cash flow and red flags using the actual figures, ending with your conclusion. Then thesis, the scores, the probabilities and finally the verdict. Reply with the JSON object only.`;
+}
+function normSample(j) {
+  const num = v => { v = parseFloat(v); return isFinite(v) ? v : 0; }, cl = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const pr = j.probabilities || {}; const p = { INVEST:Math.max(0, num(pr.INVEST)), WATCH:Math.max(0, num(pr.WATCH)), AVOID:Math.max(0, num(pr.AVOID)) };
+  let v = String(j.verdict || '').toUpperCase(); if (!p[v]) v = 'WATCH';
+  let sum = p.INVEST + p.WATCH + p.AVOID; if (!sum) { p[v] = 1; sum = 1; }
+  Object.keys(p).forEach(k => p[k] /= sum);
+  const arr = a => (Array.isArray(a) ? a : []).slice(0, 4).map(t => String(t).slice(0, 240)), s = (t, n) => String(t || '').slice(0, n);
+  return { verdict:v, p, valuation:cl(Math.round(num(j.valuation)), 0, 4), profitability:cl(Math.round(num(j.profitability)), 0, 4), balance_sheet:cl(Math.round(num(j.balance_sheet)), 0, 4), growth:cl(Math.round(num(j.growth)), 0, 3),
+    short:cl(Math.round(num(j.short_term)), 0, 4), long:cl(Math.round(num(j.long_term)), 0, 4), cash:cl(num(j.cash_backing), 0, 100), flags:cl(num(j.red_flags), 0, 100),
+    text:{ analysis:s(j.analysis, 1400), headline:s(j.headline, 170), thesis:s(j.thesis, 520), strengths:arr(j.strengths), risks:arr(j.risks), action:s(j.action, 340), change:s(j.change, 280), shortNote:s(j.short_note, 260), longNote:s(j.long_note, 260) } };
+}
+function aggregate(S) {
+  const n = S.length, P = { INVEST:0, WATCH:0, AVOID:0 }, mean = f => S.reduce((a, s) => a + f(s), 0) / n;
+  S.forEach(s => Object.keys(P).forEach(k => P[k] += s.p[k] / n));
+  const verdict = Object.entries(P).sort((a, b) => b[1] - a[1])[0][0];
+  const dim = (key, labels) => { const v = Math.round(mean(s => s[key])); return { v, max:labels.length - 1, label:labels[v] }; };
+  const lead = S.find(s => s.verdict === verdict) || S[0];
+  return { verdict, probs:{ INVEST:Math.round(P.INVEST * 100), WATCH:Math.round(P.WATCH * 100), AVOID:Math.round(P.AVOID * 100) }, n, agree:S.filter(s => s.verdict === verdict).length,
+    dims:{ valuation:dim('valuation', Q.valuation.labels), profitability:dim('profitability', Q.profitability.labels), balance_sheet:dim('balance_sheet', Q.balance_sheet.labels), growth:dim('growth', Q.growth.labels), short_term:dim('short', Q.short_term.labels), long_term:dim('long', Q.long_term.labels) },
+    cash:Math.round(mean(s => s.cash)), flags:Math.round(mean(s => s.flags)), text:lead.text };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Pipeline
+// ═══════════════════════════════════════════════════════════════════════════
+let S = null, ROOT = null, RUNS = [], LAST = null, RUNSEQ = 0, cancelAll = false, busy = false;
+// Each stock owns a section (ROOT); S is that stock's state. Only one runs at a time, so these two pointers just follow the active stock.
+const R = (id, root) => { root = root || ROOT; return root ? root.querySelector('[data-r="' + id + '"]') : null; };
+// ── Decision model reasoning panel (right column): live reasoning of whichever stock is being processed ──
+// ── Cartoon pen: follows the end of the streamed reasoning text as if writing it ──
+const penTimers = new WeakMap();
+function paintBox(box, html, writing) {
+  const inner = box.querySelector('.rin'), pen = box.querySelector('.pen'); if (!inner) { box.innerHTML = html; return; }
+  const atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 30;
+  inner.innerHTML = html;
+  if (writing) { const rts = inner.querySelectorAll('.rt'), host = rts.length ? rts[rts.length - 1] : inner; const m = document.createElement('span'); m.className = 'pm'; host.appendChild(m); }
+  if (atEnd) box.scrollTop = box.scrollHeight;
+  if (!pen) return;
+  clearTimeout(penTimers.get(box));
+  const m = inner.querySelector('.pm');
+  if (writing && m) {
+    pen.classList.remove('lift'); pen.classList.add('on');
+    const x = Math.min(m.offsetLeft, box.clientWidth - 40), y = m.offsetTop + m.offsetHeight;
+    pen.style.left = (x - 4) + 'px'; pen.style.top = (y - 40) + 'px';
+    // if the stream pauses (model thinking / loading), keep the pen bobbing in place; it lifts off when writing ends
+  } else if (pen.classList.contains('on')) {
+    pen.classList.add('lift');
+    penTimers.set(box, setTimeout(() => pen.classList.remove('on', 'lift'), 1300));
+  }
+}
+function sideReason(st, force) {
+  if (!st || (!force && st !== S)) return; const el = $('reasonBox'); if (!el) return;
+  const run = RUNS.find(r => r.id === st.runId); $('rsFor').textContent = run ? run.name : '';
+  const T = st.trace || {}, D = st.decR || { done:[], cur:null }, sec = (t, body, dim) => body ? `<h5>${t}</h5><div class="rt${dim ? ' dim' : ''}">${esc(body)}</div>` : '';
+  let h = '';
+  (D.done || []).forEach(x => h += sec(`Decision · sample ${x.i + 1}`, [x.th && 'Thinking: ' + x.th.trim(), x.analysis && 'Analysis: ' + x.analysis].filter(Boolean).join('\n\n') || 'No reasoning text was sent by this model.'));
+  if (D.cur) h += sec(`Decision · sample ${D.cur.i + 1} (live)`, [D.cur.th && 'Thinking: ' + D.cur.th.trim(), D.cur.analysis && 'Analysis: ' + D.cur.analysis].filter(Boolean).join('\n\n') || 'waiting for the first tokens…');
+  const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 30;
+  paintBox(el, h || '<span class="muted">Waiting for the decision model…</span>', !!D.cur);
+}
+function sideCur(st, force) {
+  if (!st || (!force && st !== S)) return; const el = $('curBox'); if (!el) return;
+  const run = RUNS.find(r => r.id === st.runId); $('rsCur').textContent = run ? run.name : '';
+  const T = st.trace || {}, sec = (t, body, dim) => body ? `<h5>${t}</h5><div class="rt${dim ? ' dim' : ''}">${esc(body)}</div>` : '';
+  let h = '';
+  if (T.plan) h += sec('Planning the web searches', [T.plan.thinking && 'Thinking: ' + T.plan.thinking.trim(), T.plan.rationale && 'Why: ' + T.plan.rationale, (T.plan.queries || []).length && 'Searches: ' + T.plan.queries.map(q => '“' + q + '”').join(', '), T.plan.note].filter(Boolean).join('\n\n') || (T.plan.done ? '' : 'working…'));
+  if (T.web) h += sec('Web research', T.web.text || '', true);
+  if (T.write) h += sec('Writing the briefing', [T.write.thinking && 'Thinking: ' + T.write.thinking.trim(), T.write.notes && 'Working notes:\n' + T.write.notes].filter(Boolean).join('\n\n') || (T.write.done ? 'No reasoning text was sent by this model.' : 'working…'));
+  const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 30;
+  paintBox(el, h || '<span class="muted">Waiting for the curator…</span>', !!((T.plan && !T.plan.done) || (T.web && !T.web.done) || (T.write && !T.write.done)));
+}
+function showPanels(run) { sideCur(run.S, true); sideReason(run.S, true); }
+const flushPaint = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+function setBusy(b) { busy = b; if (b) $('btnStop').textContent = '■ Stop'; $('btnRun').disabled = b; $('btnPaste').disabled = b; $('btnStop').disabled = !b; $('btnClear').disabled = b; updateRunButtons(); }
+function updateRunButtons() {
+  RUNS.forEach(r => { const c = r.el.querySelector('[data-act=cur]'), d = r.el.querySelector('[data-act=dec]'), x = r.el.querySelector('[data-act=remove]'); c.disabled = busy || !r.S.dossier; d.disabled = busy || !r.S.brief; x.style.display = busy && r.status === 'running' ? 'none' : ''; });
+  $('btnCur').disabled = busy || !(LAST && LAST.S.dossier); $('btnDec').disabled = busy || !(LAST && LAST.S.brief);
+}
+$('btnStop').onclick = () => { cancelAll = true; if (ctl) ctl.abort(); $('btnStop').disabled = true; $('btnStop').textContent = '■ Stopping…'; log('Stop requested — cancelling…', 'warn'); };
+function parseNames(raw) {
+  const seen = new Set(), out = [];
+  raw.split(/[,;\n]+/).map(x => x.trim()).filter(Boolean).forEach(x => { const k = x.toLowerCase(); if (!seen.has(k)) { seen.add(k); out.push(x); } });
+  if (out.length > 25) { log(`Only the first 25 of ${out.length} names will be analysed`, 'warn'); out.length = 25; }
+  return out;
+}
+function newRun(query) {
+  const id = ++RUNSEQ, el = document.createElement('section'); el.className = 'card runbox'; el.dataset.run = id;
+  el.innerHTML = `<div class="row runhead"><b class="rname"></b><span class="chip rstat">queued</span><span class="rverd"></span><span style="flex:1"></span>
+    <button class="small" data-act="cur" title="Re-run the curator for this stock" disabled>↻ Curator</button><button class="small" data-act="dec" title="Run the decision AI on this stock's briefing" disabled>▶ Decision</button>
+    <span class="link" data-act="toggle">collapse</span><span class="link" data-act="remove">remove</span></div>
+    <div class="runbody"><div data-r="verdict"></div><div data-r="brief"></div><div data-r="check"></div><div data-r="data"></div></div>`;
+  const run = { id, query, name:query, el, status:'queued', S:{ runId:id, d:null, x:null } };
+  el.querySelector('.rname').textContent = `#${id} · ${query}`; $('results').appendChild(el); RUNS.push(run); return run;
+}
+function setRun(run, status, label) {
+  run.status = status; run.label = label || status; const st = run.el.querySelector('.rstat'); st.textContent = run.label;
+  st.style.color = { done:'var(--green)', failed:'var(--red)', running:'var(--purple)', paused:'var(--amber)' }[status] || 'var(--muted)';
+  const d = run.S.dec; run.el.querySelector('.rverd').innerHTML = d ? `<span class="badge" style="font-size:0.78rem; padding:2px 12px; color:${BC[d.verdict]}; border:1px solid color-mix(in srgb, ${BC[d.verdict]} 45%, transparent); background:color-mix(in srgb, ${BC[d.verdict]} 14%, transparent);">${d.verdict}</span>` : '';
+  run.el.querySelector('.rname').textContent = `#${run.id} · ${run.name}`; renderSummary(); updateRunButtons();
+}
+function summaryRows() {
+  return RUNS.map(r => { const d = r.S.dec, m = r.S.metrics || {}; return { id:r.id, name:r.name, status:r.label || r.status, verdict:d ? d.verdict : '', inv:d ? d.probs.INVEST : '', wat:d ? d.probs.WATCH : '', avd:d ? d.probs.AVOID : '', flags:d ? d.flags : '', pe:m.pe, roe:m.roe_pct, de:m.debt_to_equity, st:d ? d.dims.short_term.label : '', lt:d ? d.dims.long_term.label : '' }; });
+}
+function renderSummary() {
+  const el = $('summary'); if (RUNS.length < 2) { el.innerHTML = ''; return; }
+  const pc = v => v === '' ? '–' : v + '%', n = v => v == null ? '–' : saF(v);
+  el.innerHTML = `<div class="card"><div class="row" style="justify-content:space-between;"><b>📋 Batch summary <span class="muted">· click a row to jump to its full analysis</span></b><span><span class="link" onclick="foldAll(true)">collapse all</span> · <span class="link" onclick="foldAll(false)">expand all</span> · <span class="link" onclick="copySummary()">copy as CSV</span></span></div>
+    <div style="overflow-x:auto; margin-top:8px;"><table class="t"><thead><tr><th class="l">#</th><th class="l">Stock</th><th class="l">Status</th><th class="l">Verdict</th><th>Invest</th><th>Watch</th><th>Avoid</th><th>Red flags</th><th class="l">Short term</th><th class="l">Long term</th><th>P/E</th><th>ROE %</th><th>D/E</th></tr></thead><tbody>` +
+    summaryRows().map(r => `<tr data-go="${r.id}" style="cursor:pointer;"><td class="l">${r.id}</td><td class="l">${esc(r.name)}</td><td class="l">${esc(r.status)}</td><td class="l">${r.verdict ? `<b style="color:${BC[r.verdict]}">${r.verdict}</b>` : '–'}</td><td>${pc(r.inv)}</td><td>${pc(r.wat)}</td><td>${pc(r.avd)}</td><td>${pc(r.flags)}</td><td class="l">${esc(r.st || '–')}</td><td class="l">${esc(r.lt || '–')}</td><td>${n(r.pe)}</td><td>${n(r.roe)}</td><td>${r.de == null ? '–' : saF(r.de) + 'x'}</td></tr>`).join('') + '</tbody></table></div></div>';
+}
+$('summary').addEventListener('click', e => { const tr = e.target.closest('[data-go]'); if (!tr) return; const run = RUNS.find(r => r.id == tr.dataset.go); if (run) { if (!busy) showPanels(run); fold(run, false); run.el.scrollIntoView({ behavior:'smooth', block:'start' }); } });
+function copySummary() {
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const csv = ['#,Stock,Status,Verdict,Invest %,Watch %,Avoid %,Red flags %,Short term,Long term,P/E,ROE %,D/E'].concat(summaryRows().map(r => [r.id, q(r.name), q(r.status), r.verdict, r.inv, r.wat, r.avd, r.flags, q(r.st), q(r.lt), r.pe, r.roe, r.de].join(','))).join('\n');
+  if (navigator.clipboard) navigator.clipboard.writeText(csv);
+}
+function fold(run, hide) { run.el.querySelector('.runbody').style.display = hide ? 'none' : ''; run.el.querySelector('[data-act=toggle]').textContent = hide ? 'expand' : 'collapse'; }
+function foldAll(hide) { RUNS.forEach(r => fold(r, hide)); }
+$('results').addEventListener('click', e => {
+  const bx = e.target.closest('.runbox'); if (bx && !busy) { const rr = RUNS.find(r => r.id == bx.dataset.run); if (rr) showPanels(rr); }
+  const a = e.target.closest('[data-act]'); if (!a) return; const run = RUNS.find(r => r.id == a.closest('.runbox').dataset.run); if (!run) return;
+  if (a.dataset.act === 'toggle') fold(run, run.el.querySelector('.runbody').style.display !== 'none');
+  else if (a.dataset.act === 'remove') { if (busy && run.status === 'running') return; run.el.remove(); RUNS = RUNS.filter(r => r !== run); if (LAST === run) LAST = RUNS[RUNS.length - 1] || null; renderSummary(); updateRunButtons(); }
+  else if (a.dataset.act === 'cur' || a.dataset.act === 'dec') rerun(run, a.dataset.act);
+});
+$('btnClear').onclick = () => { if (busy) return; RUNS.forEach(r => r.el.remove()); RUNS = []; LAST = null; S = null; ROOT = null; renderSummary(); updateRunButtons(); };
+function copyBrief(el) { const t = R('briefText', el.closest('.runbox')); if (t && navigator.clipboard) navigator.clipboard.writeText(t.value); }
+function reveal(run) { if (!$('optFollow').checked) return; const r = run.el.getBoundingClientRect(); if (r.top > innerHeight - 160 || r.top < 0) run.el.scrollIntoView({ behavior:'smooth', block:'start' }); }
+
+async function writeBriefing() {
+  S.trace = {}; S.news = { items:[], queries:[] }; initBriefCard();
+  const d = S.d, x = S.x, web = await webResearch(d); S.news = web; renderNews(); S.checks = buildChecklist(d, x, web); renderChecklist();
+  const heads = web.items.length ? '\n\nRECENT WEB HEADLINES (unverified, newest first):\n' + web.items.map(n => `- ${fmtDate(n.date)} · ${n.source || 'news'}${CHK_CAT[n.cat] ? ' [' + CHK_CAT[n.cat] + ']' : ''}: ${n.title}`).join('\n') : '';
+  const o = cOpts(), st = ticker($('cState'), 'Curator writing the briefing…'), W = S.trace.write = { thinking:'', notes:'', inBrief:false, done:false }; paintTrace();
+  log(`Curator AI (${o.model}): writing the briefing from ${S.dossier.length} chars of data${web.items.length ? ' + ' + web.items.length + ' headlines' : ''}`, 'ai');
+  try {
+    const r = await olChat({ ...o, system:$('cSys').value.trim() || DEFAULT_SYS,
+      prompt:`Scraped data:\n${S.dossier}${heads}\n\n${checklistText(S.checks)}\n\nReply in TWO parts. Part 1 begins with the line WORKING NOTES followed by 4 to 8 short bullets of your own reasoning: what stands out in the numbers, what the headlines add (if any), what worries you and what you are unsure about. Then put a line that says exactly === BRIEFING === . Part 2 is the briefing itself, covering: (1) valuation snapshot incl. P/E, EPS and its trend, book value, price vs 52-week range; (2) profitability and ROE/ROCE trend; (3) debt levels: borrowings trend, debt/equity, interest coverage, cash flow vs profit; (4) growth in sales, profit and EPS; (5) red flags and positives from the numbers, the site-flagged pros/cons${web.items.length ? ' and what the recent headlines suggest (as unverified)' : ''}; (6) four questions the decision AI must weigh (e.g. cyclicality, valuation vs growth). Keep every figure exactly as supplied.` + '\n\nAfter the valuation/returns/debt/growth paragraphs, add a CHECKLIST section: one line per checklist item (id, status, evidence in at most 12 words). Keep the computed statuses; for every JUDGE item give your own one-sentence judgement (PASS / PARTIAL / FAIL) using ONLY the evidence listed, or NO DATA if it is insufficient — never invent a moat or a growth story. Then end the briefing with two short labelled paragraphs: SHORT TERM (next 3-12 months: results momentum, what the headlines imply, valuation stretch, near-term risks/catalysts) and LONG TERM (next 3-5+ years: business quality, durability of returns, growth runway, debt safety).' + (isTev1(getModel('d')) ? '\n\nIMPORTANT LENGTH LIMIT: the Decision AI can read only about 2,000 tokens. Keep the briefing under 280 words, plain text, no markdown or tables, one fact per line, keep every key number.' : ''),
+      onToken:(c, thN, thText) => { st.set(c.length + thN); const sp = splitCur(stripThink(c)); W.thinking = thText || inlineThink(c); W.notes = sp.notes; W.inBrief = sp.inBrief; const ta = R('briefText'); if (ta) { ta.value = sp.brief; ta.scrollTop = ta.scrollHeight; } paintTrace(); } });
+    let sp = splitCur(r.content); if (!sp.inBrief) sp = { notes:'', brief:r.content.replace(/^\s*[#*\s]*WORKING NOTES[:*\s]*/i, '').trim(), inBrief:true };   // the model never wrote the divider
+    let brief = sp.brief.trim(); W.notes = sp.notes; W.done = true; paintTrace();
+    if (brief.length >= 250 && S.checks && !/checklist/i.test(brief)) { brief += '\n\n' + (isTev1(getModel('d')) ? 'CHECKLIST: ' + S.checks.map(r => `${r.id} ${r.status}`).join(', ') : checklistText(S.checks)); log('The curator left out the checklist — the code-computed checklist was appended to the briefing', 'warn'); }
+    if (brief.length < 250) { log('Curator output unusable — falling back to the raw data dossier as the briefing', 'warn'); brief = 'BRIEFING (raw scraped data):\n' + S.dossier + heads; }
+    else log(`Curator AI done: ${brief.split(/\s+/).length} words${r.truncated ? ' (cut off at max tokens — raise “Max tokens” if this looks incomplete)' : ''}`, r.truncated ? 'warn' : 'ai');
+    S.brief = brief; S.curatorModel = o.model; R('briefText').value = brief; st.stop('✔ briefing ready', 'ok');
+  } catch (e) { W.done = true; paintTrace(); st.stop(e.message === 'Stopped' ? 'stopped' : '✖ ' + e.message, e.message === 'Stopped' ? '' : 'err'); throw e; }
+}
+// ── Live view of the Decision AI while it works ──
+function partialView(t) {
+  const str = k => { const m = t.match(new RegExp('"' + k + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)("|$)')); return m ? m[1].replace(/\\n/g, ' ').replace(/\\"/g, '"') : null; };
+  const arr = k => { const m = t.match(new RegExp('"' + k + '"\\s*:\\s*\\[([^\\]]*)(\\]|$)')); return m ? [...m[1].matchAll(/"((?:[^"\\\\]|\\\\.)*)("|$)/g)].map(x => x[1]) : null; };
+  const num = k => { const m = t.match(new RegExp('"' + k + '"\\s*:\\s*(-?[\\d.]+)')); return m ? +m[1] : null; };
+  return { analysis:str('analysis'), thesis:str('thesis'), strengths:arr('strengths'), risks:arr('risks'), verdict:str('verdict'),
+    scores:['valuation', 'profitability', 'balance_sheet', 'growth', 'short_term', 'long_term', 'cash_backing', 'red_flags'].map(k => [k, num(k)]).filter(x => x[1] != null),
+    probs:['INVEST', 'WATCH', 'AVOID'].map(k => [k, num(k)]).filter(x => x[1] != null) };
+}
+function liveCard(model, i, n, done, thinking, text, wait) {
+  const v = partialView(text), f = (l, c) => c ? `<div class="live-f"><b>${l}</b> ${c}</div>` : '';
+  const prev = done.map((d, k) => `<div class="muted">✔ Sample ${k + 1}: <b style="color:${BC[d.verdict]}">${d.verdict}</b> · invest ${Math.round(d.p.INVEST * 100)}% / watch ${Math.round(d.p.WATCH * 100)}% / avoid ${Math.round(d.p.AVOID * 100)}%</div>`).join('');
+  const sc = v.scores.map(([k, x]) => `${k.replace('_', ' ')} ${x}`).join(' · '), pr = v.probs.map(([k, x]) => `${k} ${x}`).join(' · ');
+  const li = a => a && a.length ? esc(a.join(' · ')) : '';
+  return `<div class="card" style="border-left:4px solid var(--purple);"><div class="row" style="justify-content:space-between;"><b><span class="spin"></span>Decision AI reasoning — live</b><span class="muted">${esc(model)} · sample ${i + 1} of ${n}</span></div>${prev ? `<div style="margin-top:6px;">${prev}</div>` : ''}
+    ${thinking ? `<div class="muted" style="margin-top:8px;">💭 Thinking trace from the model</div><div class="think" data-r="thinkBox">${esc(thinking)}</div>` : ''}
+    ${f('Reasoning:', v.analysis != null ? esc(v.analysis) + (v.thesis == null ? '<span class="caret"></span>' : '') : '')}
+    ${f('Thesis:', v.thesis != null ? esc(v.thesis) + (v.strengths == null ? '<span class="caret"></span>' : '') : '')}
+    ${f('Strengths:', li(v.strengths))}${f('Risks:', li(v.risks))}${f('Scores:', esc(sc))}${f('Probabilities:', esc(pr))}${f('Verdict:', v.verdict ? esc(v.verdict) : '')}
+    ${!thinking && v.analysis == null && !text ? `<div class="muted" style="margin-top:8px;">${wait || 'Waiting for the first tokens (a model that is loading into memory can take a while)…'}</div>` : ''}</div>`;
+}
+
+// ── tev1 (decision model): typed questions go to /v1/systemone as {state, questions}; it returns probabilities, not prose ──
+const TEV_STATE_MAX = 3200;   // tev1 runs with ~2,000 tokens of context, questions included
+const TEV_ORDER = ['verdict', 'valuation', 'profitability', 'balance_sheet', 'growth', 'short_term', 'long_term', 'cash_backing', 'red_flags'];
+function tevQuestions() {   // an OBJECT keyed by question name (not an array)
+  const sc = k => ({ type:'score', instructions:Q[k].instructions, criteria:Q[k].labels });
+  return { short_term:sc('short_term'), long_term:sc('long_term'), verdict:{ type:'choice', instructions:Q.verdict.instructions, criteria:Q.verdict.criteria }, valuation:sc('valuation'), profitability:sc('profitability'), balance_sheet:sc('balance_sheet'), growth:sc('growth'),
+    cash_backing:{ type:'noul', instructions:Q.cash_backing.instructions }, red_flags:{ type:'noul', instructions:Q.red_flags.instructions } };
+}
+function tevState(brief, metrics) {
+  const head = 'KEY METRICS: ' + Object.entries(metrics || {}).map(([k, v]) => `${k}=${typeof v === 'number' ? +v.toFixed(2) : v}`).join(', ') + '\n\nBRIEFING:\n';
+  const room = Math.max(800, TEV_STATE_MAX - head.length), b = brief.replace(/[*#|]+/g, '').replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim();
+  return { text:head + (b.length > room ? b.slice(0, room) : b), cut:Math.max(0, b.length - room) };
+}
+// Be forgiving about the response shape: answers may sit under choices / scores / nouls, or answers, keyed by name or as a list.
+function tevPick(j, name) {
+  const roots = [j && j.answers, j, j && j.result, j && j.results, j && j.data].filter(x => x && typeof x === 'object');
+  for (const r of roots) for (const g of [r, r.choices, r.scores, r.nouls, r.answers]) {
+    if (!g) continue;
+    if (Array.isArray(g)) { const hit = g.find(a => a && (a.name === name || a.question === name || a.id === name)) || (g.length === TEV_ORDER.length && !g.some(a => a && a.name) ? g[TEV_ORDER.indexOf(name)] : null); if (hit != null) return hit; }
+    else if (typeof g === 'object' && g[name] != null) return g[name];
+  }
+  return null;
+}
+const tevNum = v => { if (v == null) return null; if (typeof v === 'number') return v; if (typeof v === 'object') for (const k of ['score', 'noul', 'probability', 'prob', 'p', 'value', 'true']) if (typeof v[k] === 'number') return v[k]; v = parseFloat(v); return isFinite(v) ? v : null; };
+function tevSample(j) {
+  const cv = tevPick(j, 'verdict'); if (!cv) throw new Error('tev1 reply had no “verdict” answer: ' + JSON.stringify(j).slice(0, 200));
+  const pm = cv.probabilities || cv.probs || {}, probs = {}; ['INVEST', 'WATCH', 'AVOID'].forEach(k => { const hit = Object.keys(pm).find(x => x.toUpperCase() === k); probs[k] = hit ? tevNum(pm[hit]) || 0 : 0; });
+  const ch = String(cv.choice || cv.answer || '').toUpperCase(); if (!probs.INVEST && !probs.WATCH && !probs.AVOID && probs[ch] != null) probs[ch] = 1;
+  const pct = k => { let v = tevNum(tevPick(j, k)); if (v == null) return 0; return v <= 1 ? v * 100 : v; };   // probability that the statement is true
+  const lv = (k, max) => { const v = tevNum(tevPick(j, k)); return v == null ? 0 : Math.max(0, Math.min(max, Math.round(v))); };
+  const out = { verdict:ch, probabilities:probs, valuation:lv('valuation', 4), profitability:lv('profitability', 4), balance_sheet:lv('balance_sheet', 4), growth:lv('growth', 3), short_term:lv('short_term', 4), long_term:lv('long_term', 4), cash_backing:pct('cash_backing'), red_flags:pct('red_flags') };
+  const L = { valuation:Q.valuation.labels, profitability:Q.profitability.labels, balance_sheet:Q.balance_sheet.labels, growth:Q.growth.labels }, nm = { valuation:'Valuation', profitability:'Profitability', balance_sheet:'Balance sheet', growth:'Growth' };
+  const good = [], bad = []; Object.keys(L).forEach(k => { const mid = (L[k].length - 1) / 2; (out[k] > mid ? good : out[k] < mid ? bad : []).push(`${nm[k]}: ${L[k][out[k]]}`); });
+  if (out.cash_backing >= 65) good.push(`Profit well backed by cash flow (${Math.round(out.cash_backing)}%)`); else if (out.cash_backing < 40) bad.push(`Profit weakly backed by cash flow (${Math.round(out.cash_backing)}%)`);
+  if (out.red_flags >= 40) bad.push(`Serious red flags likely (${Math.round(out.red_flags)}%)`);
+  const conf = tevNum(cv.confidence);
+  const sN = `Valuation ${L.valuation[out.valuation].toLowerCase()}; red-flag risk ${Math.round(out.red_flags)}%.`, lN = `Profitability ${L.profitability[out.profitability].toLowerCase()}, growth ${L.growth[out.growth].toLowerCase()}, debt ${L.balance_sheet[out.balance_sheet].toLowerCase()}.`;
+  Object.assign(out, { short_note:sN, long_note:lN, analysis:'', headline:`${ch || 'WATCH'} — ${Object.keys(L).map(k => `${nm[k].toLowerCase()} ${L[k][out[k]].toLowerCase()}`).join(', ')}.`,
+    thesis:`tev1 answers typed questions with probabilities instead of writing prose, so this summary is built from its answers.${conf != null ? ` Confidence on the verdict: ${Math.round(conf <= 1 ? conf * 100 : conf)}%.` : ''}`, strengths:good, risks:bad, action:'', change:'' });
+  return out;
+}
+async function decideTev1(o, brief) {
+  const n = parseInt($('dSamples').value) || 1; S.brief = brief;
+  const st = tevState(brief, S.metrics), qs = tevQuestions(), body = { model:o.model, state:st.text, questions:qs };
+  R('verdict').innerHTML = liveCard(o.model, 0, 1, [], '', '', `Sending the briefing and ${TEV_ORDER.length} typed questions to tev1…`);
+  log(`Decision AI (${o.model}): tev1 mode — ${TEV_ORDER.length} typed questions via /v1/systemone on ${st.text.length} chars of state${st.cut ? ` (briefing trimmed by ${st.cut} chars to fit its ~2,000-token window)` : ''}${n > 1 ? ' · one sample (it is deterministic)' : ''}`, 'ai');
+  const t = ticker($('dState'), 'tev1 weighing the evidence…');
+  try {
+    const res = await fetch(olBase() + '/v1/systemone', { method:'POST', signal:ctl ? ctl.signal : undefined, headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) });
+    const txt = await res.text(); if (!res.ok) throw new Error(res.status === 404 ? 'This Ollama has no /v1/systemone endpoint — tev1 needs Ollama 0.35 or newer (check with: ollama --version).' : `tev1 HTTP ${res.status}: ${txt.slice(0, 220)}`);
+    let j; try { j = JSON.parse(txt); } catch (e) { throw new Error('tev1 did not return JSON: ' + txt.slice(0, 160)); }
+    const sm = tevSample(j); log(`tev1 raw answer: ${txt.replace(/\s+/g, ' ').slice(0, 300)}`);
+    S.decR = { done:[{ i:0, th:'', analysis:'tev1 answers typed questions with probabilities and writes no reasoning text. Its answers:\n' + TEV_ORDER.map(k => `${k}: ${k === 'verdict' ? `${sm.verdict} (invest ${Math.round(sm.probabilities.INVEST * 100)}% / watch ${Math.round(sm.probabilities.WATCH * 100)}% / avoid ${Math.round(sm.probabilities.AVOID * 100)}%)` : (+sm[k]).toFixed(2)}`).join('\n') }], cur:null }; sideReason(S);
+    const nsm = normSample(sm), dec = aggregate([nsm]); dec.model = o.model; dec.curator = S.curatorModel || ''; dec.trace = []; t.stop();
+    S.dec = dec; renderVerdict(dec);
+    $('dState').className = 'state ok'; $('dState').textContent = `✔ ${dec.verdict}`;
+    log(`Decision: ${dec.verdict} · invest ${dec.probs.INVEST}% / watch ${dec.probs.WATCH}% / avoid ${dec.probs.AVOID}% · red flags ${dec.flags}%`, 'ok');
+  } catch (e) {
+    const stopped = e.name === 'AbortError' || e.message === 'Stopped'; t.stop(stopped ? 'stopped' : '✖ ' + e.message, stopped ? '' : 'err');
+    R('verdict').innerHTML = stopped ? '' : errCard('Decision AI (tev1) failed: ' + e.message, 'tev1 needs Ollama 0.35+; if the reply format differs from what this page expects, copy the activity log to me.');
+    throw stopped ? new Error('Stopped') : e;
+  }
+}
+async function decide() {
+  const o = dOpts(), n = parseInt($('dSamples').value) || 1, brief = R('briefText') ? R('briefText').value.trim() : S.brief;
+  if (brief.length < 100) throw new Error('The briefing is empty — run the curator first.');
+  if (isTev1(o.model)) return decideTev1(o, brief);
+  S.brief = brief; const trace = []; S.decR = { done:[], cur:null }; R('verdict').innerHTML = liveCard(o.model, 0, n, [], '', '');
+  log(`Decision AI (${o.model}): ${Object.keys(Q).length} typed questions on a ${brief.length}-char briefing · ${n} sample${n > 1 ? 's' : ''}`, 'ai');
+  const samples = [], prompt = decPrompt(brief, S.metrics), budget = o.think ? 4000 : 1200;
+  let t = null;
+  try {
+    for (let i = 0; i < n; i++) {
+      t = ticker($('dState'), `Decision AI weighing the evidence (${i + 1}/${n})…`);
+      let cur = { c:'', th:'' }, pending = false, dead = false; const root = ROOT, st = S;   // paints are tied to THIS stock's section and stop once its sample ends
+      const paint = () => { pending = false; if (dead) return; const rr = id => R(id, root), inline = (cur.c.match(/<think>([\s\S]*?)(<\/think>|$)/) || [])[1] || '', _pv = (st.decR.cur = { i, th:cur.th || inline, analysis:partialView(stripThink(cur.c)).analysis || '' }, sideReason(st)), box = rr('thinkBox'), atEnd = !box || box.scrollTop + box.clientHeight >= box.scrollHeight - 24;
+        rr('verdict').innerHTML = liveCard(o.model, i, n, samples, cur.th || inline, stripThink(cur.c)); const nb = rr('thinkBox'); if (nb && atEnd) nb.scrollTop = nb.scrollHeight; };
+      paint();
+      let r; try { r = await olChat({ ...o, system:DEC_SYS, prompt, format:DEC_SCHEMA, num_predict:budget, temperature:n > 1 ? Math.max(o.temperature, 0.4) : o.temperature,
+        onToken:(c, thN, thText) => { t.set(c.length + thN); cur = { c, th:thText || '' }; if (!pending) { pending = true; requestAnimationFrame(paint); } } }); } finally { dead = true; }
+      t.stop();
+      if (r.truncated) log('Decision output was cut off at the token limit — raise the context size, or switch “Thinking” off', 'warn');
+      let j; try { j = extractJson(r.content); } catch (e) { log(`Sample ${i + 1}: unusable JSON (${e.message})`, 'warn'); continue; }
+      const sm = normSample(j); samples.push(sm); st.decR.done.push({ i, th:r.thinking || ((r.raw.match(/<think>([\s\S]*?)(<\/think>|$)/) || [])[1] || ''), analysis:sm.text.analysis }); st.decR.cur = null; sideReason(st); trace.push({ thinking:r.thinking || ((r.raw.match(/<think>([\s\S]*?)(<\/think>|$)/) || [])[1] || ''), verdict:sm.verdict, p:sm.p, text:sm.text }); log(`Sample ${i + 1}/${n}: ${sm.verdict} · invest ${Math.round(sm.p.INVEST * 100)}% / watch ${Math.round(sm.p.WATCH * 100)}% / avoid ${Math.round(sm.p.AVOID * 100)}%`, 'ai');
+    }
+    if (!samples.length) throw new Error('The decision model did not return valid JSON. Try a stronger model or enable “Thinking”.');
+    const dec = aggregate(samples); dec.model = o.model; dec.curator = S.curatorModel || ''; dec.trace = trace;
+    S.dec = dec; renderVerdict(dec);
+    $('dState').className = 'state ok'; $('dState').textContent = `✔ ${dec.verdict}${dec.n > 1 ? ` (${dec.agree}/${dec.n} samples agree)` : ''}`;
+    log(`Decision: ${dec.verdict} · invest ${dec.probs.INVEST}% / watch ${dec.probs.WATCH}% / avoid ${dec.probs.AVOID}% · red flags ${dec.flags}%`, 'ok');
+  } catch (e) {
+    const stopped = e.message === 'Stopped';
+    if (t) t.stop(stopped ? 'stopped' : '✖ ' + e.message, stopped ? '' : 'err');
+    R('verdict').innerHTML = stopped ? '' : errCard('Decision AI failed: ' + e.message, 'Try a larger or more instruction-following model, turn “Thinking” on for reasoning models, or raise the context size.');
+    throw e;
+  }
+}
+const errCard = (m, hint) => `<div class="card err-card">⚠ ${esc(m)}${hint ? `<br><span class="muted">${esc(hint)}</span>` : ''} <span class="link" onclick="copyLog()">copy log</span></div>`;
+
+async function analyseOne(run, pasted) {
+  ROOT = run.el; S = run.S; LAST = run; sideCur(S); sideReason(S); setRun(run, 'running', 'running…'); $('cState').textContent = ''; $('dState').textContent = ''; reveal(run);
+  ctl = new AbortController(); const q = run.query;
+  try {
+    if (!getModel('c') || !getModel('d')) throw new Error('Choose a Curator model and a Decision model first (click “Connect & detect models”).');
+    if (!activeProxies.length) { localProxyOk = await probeLocalProxy(); buildProxyList(); log(localProxyOk ? 'Local scraper proxy found' : 'Local proxy not running — using public proxies', localProxyOk ? 'ok' : 'warn'); }
+    let d = null;
+    if (pasted) { d = saParse(pasted); if (!d) throw new Error('Could not find the Profit & Loss statements in the pasted text' + (saDiag ? ` (${saDiag})` : '')); d.url = ''; d.basis = 'Pasted page'; d.name = d.name || q || 'Pasted company'; }
+    else {
+      const res = await saResolve(q), cands = [res].concat(res.alts || []), whys = [];
+      for (let i = 0; i < cands.length && !d; i++) {
+        try { d = await saScrape(cands[i]); }
+        catch (e) { whys.push(`${cands[i].name}: ${String(e.message).slice(0, 240)}`); log(`${cands[i].name}: ${e.message}`, 'warn'); if (/BLOCKED/.test(e.message)) break; if (i < cands.length - 1) log(`Falling back to the next match: ${cands[i + 1].name}`, 'warn'); }
+      }
+      if (!d) throw new Error(`Could not scrape fundamentals for "${q}". ${whys.join(' || ')}`);
+    }
+    const x = saDerive(d); S.d = d; S.x = x; S.dossier = saDossier(d, x); run.name = d.name;
+    const k = d.k, om = { price:k.price, pe:k.pe, pb:x.pb, roe_pct:k.roe, roce_pct:k.roce, eps_ttm:x.eps, eps_cagr_3y_pct:x.g.eps3, eps_cagr_5y_pct:x.g.eps5, sales_cagr_3y_pct:x.g.sales3, net_profit_cagr_3y_pct:x.g.np3,
+      debt_to_equity:x.isFin ? null : x.de, interest_coverage:x.isFin ? null : x.ic, ocf_to_net_profit:x.series.cfoNp.filter(v => v != null).pop() };
+    S.metrics = Object.fromEntries(Object.entries(om).filter(([, v]) => v != null));
+    log(`Parsed ${Object.keys(d.ann).length} statement rows · P/E ${saF(k.pe)} · ROE ${saF(k.roe)}% · EPS ${saF(x.eps)} · D/E ${saF(x.de)}x · latest FY ${x.latest}`, 'ok');
+    R('data').innerHTML = renderData(d, x); setRun(run, 'running', 'curator…');
+    await writeBriefing();
+    if ($('optReview').checked) { log('Paused: review or edit the briefing, then press “▶ Decision” on this stock', 'warn'); $('cState').textContent = '✔ briefing ready — review it, then run the decision'; setRun(run, 'paused', 'briefing ready — run the decision'); }
+    else { setRun(run, 'running', 'decision…'); await decide(); setRun(run, 'done', 'done'); }
+  } catch (e) {
+    if (cancelAll) e = new Error('Stopped');
+    if (e.message === 'Stopped') { log('Stopped by user', 'warn'); setRun(run, 'stopped', 'stopped'); }
+    else { log('Failed: ' + e.message, 'err'); if (!R('verdict').innerHTML.includes('err-card')) R('verdict').innerHTML = errCard(e.message, /scrape|resolve|proxy|screener|statements/i.test(e.message) ? 'If scraping is blocked, use “Paste the Screener page text” at the bottom, or run node scraper_proxy.js next to this file.' : ''); setRun(run, 'failed', 'failed'); }
+  } finally { ctl = null; await flushPaint(); }
+}
+async function run(pasted) {
+  if (busy) return; pasted = typeof pasted === 'string' && pasted.length > 200 ? pasted : '';
+  const raw = $('q').value.trim(); if (!raw && !pasted) { $('q').focus(); return; }
+  const names = pasted ? ['Pasted page'] : parseNames(raw); if (!names.length) return;
+  LOG = []; cancelAll = false; setBusy(true);
+  log(`Started: ${names.length} stock${names.length > 1 ? 's' : ''} — ${names.join(', ')}`);
+  const runs = names.map(newRun); renderSummary();
+  try {
+    for (let i = 0; i < runs.length && !cancelAll; i++) {
+      $('batchState').textContent = runs.length > 1 ? `Stock ${i + 1} of ${runs.length}: ${runs[i].query}` : '';
+      if (runs.length > 1) log(`──── Stock ${i + 1} of ${runs.length}: ${runs[i].query} ────`);
+      await analyseOne(runs[i], pasted);
+    }
+  } finally {
+    runs.forEach(r => { if (r.status === 'queued') setRun(r, 'stopped', 'cancelled'); });
+    $('batchState').textContent = ''; setBusy(false);
+    if (runs.length > 1) log(`Batch finished — ${runs.map(r => `${r.name}: ${r.S.dec ? r.S.dec.verdict : r.label}`).join(' · ')}`, 'ok');
+  }
+}
+async function rerun(run, which) {
+  if (busy) return; ROOT = run.el; S = run.S; LAST = run; sideCur(S); sideReason(S); ctl = new AbortController(); cancelAll = false; setBusy(true); setRun(run, 'running', which === 'cur' ? 'curator…' : 'decision…'); reveal(run);
+  try {
+    if (which === 'cur') { await writeBriefing(); setRun(run, 'paused', run.S.dec ? 'briefing re-written — re-run the decision' : 'briefing ready'); }
+    else { await decide(); setRun(run, 'done', 'done'); }
+  } catch (e) {
+    if (e.message === 'Stopped') setRun(run, 'stopped', 'stopped'); else { log((which === 'cur' ? 'Curator' : 'Decision') + ' failed: ' + e.message, 'err'); setRun(run, 'failed', 'failed'); }
+  } finally { ctl = null; await flushPaint(); setBusy(false); }
+}
+$('btnRun').onclick = () => run();
+$('btnPaste').onclick = () => run($('pasteBox').value);
+$('btnDetect').onclick = olDetect;
+$('btnCur').onclick = () => { if (LAST) rerun(LAST, 'cur'); };
+$('btnDec').onclick = () => { if (LAST) rerun(LAST, 'dec'); };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Rendering
+// ═══════════════════════════════════════════════════════════════════════════
+function initBriefCard() {
+  R('brief').innerHTML = `<div class="card"><b>🧠 Curator AI — reasoning &amp; briefing</b>
+    <div class="row" style="justify-content:space-between; margin-top:12px;"><b>Briefing <span class="muted">· edit it freely, the decision AI reads this text</span></b><span class="link" onclick="copyBrief(this)">copy</span></div>
+    <textarea data-r="briefText" rows="14" style="margin-top:8px;" placeholder="The curator is working… the briefing appears here as it is written."></textarea><div data-r="curNews"></div></div>`;
+}
+function renderNews() {
+  const w = S.news || { items:[], queries:[] }, el = R('curNews'); if (!el) return;
+  el.innerHTML = w.items.length ? `<details style="margin-top:12px;"><summary>🌐 Web headlines the curator saw (${w.items.length})</summary><div class="muted" style="margin-top:4px;">Searches: ${w.queries.map(q => '“' + esc(q) + '”').join(', ')}</div><ul class="news">${w.items.map(n => `<li>${esc(fmtDate(n.date))} · <a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a> <span class="muted">— ${esc(n.source)}</span></li>`).join('')}</ul></details>`
+    : ($('optWeb').checked ? '<div class="muted" style="margin-top:10px;">🌐 No web headlines were available for this run.</div>' : '');
+}
+const BC = { INVEST:'var(--green)', WATCH:'var(--amber)', AVOID:'var(--red)' };
+function renderVerdict(d) {
+  const col = BC[d.verdict], t = d.text, li = a => (a || []).map(x => `<li style="margin:3px 0;">${esc(x)}</li>`).join('');
+  const pb = k => `<div style="display:flex; align-items:center; gap:8px; font-size:0.78rem; margin:3px 0;"><span style="width:58px; color:${BC[k]}; font-weight:700;">${k}</span><div class="bar" style="flex:1;"><i style="width:${d.probs[k]}%; background:${BC[k]};"></i></div><span style="width:36px; text-align:right;">${d.probs[k]}%</span></div>`;
+  const dim = (l, o) => `<div class="kpi"><span>${l}</span><b style="font-size:0.95rem;">${esc(o.label)}</b><div class="bar" style="margin-top:6px;"><i style="width:${Math.round(o.v / o.max * 100)}%; background:linear-gradient(90deg,var(--accent),var(--purple));"></i></div></div>`;
+  const hz = (l, o, note) => { const c = ['var(--red)', 'var(--red)', 'var(--amber)', 'var(--green)', 'var(--green)'][o.v]; return `<div class="kpi" style="border-left:3px solid ${c};"><span>${l}</span><b style="font-size:0.98rem; color:${c};">${esc(o.label)}</b><div class="bar" style="margin-top:6px;"><i style="width:${Math.round((o.v + 1) / (o.max + 1) * 100)}%; background:${c};"></i></div><i style="font-size:0.78rem; display:block; margin-top:6px;">${esc(note || '')}</i></div>`; };
+  const reasoning = (d.trace && d.trace.length) ? `<details open style="margin-top:12px;"><summary>🧠 How the Decision AI reasoned (${d.trace.length} sample${d.trace.length > 1 ? 's' : ''})</summary>` + d.trace.map((x, k) => `<div style="margin:8px 0; padding:8px 12px; background:var(--card2); border-radius:10px;"><b>Sample ${k + 1}</b> · <b style="color:${BC[x.verdict]}">${x.verdict}</b> <span class="muted">· invest ${Math.round(x.p.INVEST * 100)}% / watch ${Math.round(x.p.WATCH * 100)}% / avoid ${Math.round(x.p.AVOID * 100)}%</span>${x.thinking ? `<div class="muted" style="margin-top:6px;">💭 Thinking trace</div><div class="think">${esc(x.thinking)}</div>` : ''}<div class="live-f"><b>Reasoning:</b> ${esc(x.text.analysis || '—')}</div><div class="live-f"><b>Thesis:</b> ${esc(x.text.thesis)}</div></div>`).join('') + '</details>' : '';
+  const rows = [['Suggested action', t.action], ['What would change this view', t.change]].filter(r => r[1]).map(([a, b]) => `<div><b>${a}:</b> ${esc(b)}</div>`).join('');
+  R('verdict').innerHTML = `<div class="card" style="border-left:4px solid ${col};">
+    <div class="row"><span class="badge" style="background:color-mix(in srgb, ${col} 14%, transparent); color:${col}; border:1px solid color-mix(in srgb, ${col} 40%, transparent);">${d.verdict}</span><div style="font-weight:700; flex:1; min-width:200px;">${esc(t.headline || 'Decision model favours ' + d.verdict)}</div></div>
+    <div style="margin:12px 0 4px; max-width:480px;">${['INVEST', 'WATCH', 'AVOID'].map(pb).join('')}</div>
+    <div class="kpis" style="margin:12px 0 8px;">${dim('Valuation', d.dims.valuation)}${dim('Profitability / ROE', d.dims.profitability)}${dim('Debt safety', d.dims.balance_sheet)}${dim('Growth', d.dims.growth)}</div>
+    <div class="cols" style="margin:8px 0;">${hz('⏱ Short term · next 3–12 months', d.dims.short_term, t.shortNote)}${hz('🌱 Long term · next 3–5+ years', d.dims.long_term, t.longNote)}</div>
+    <div><span class="chip">Profit backed by cash flow ${d.cash}%</span><span class="chip">Serious red flags ${d.flags}%</span>${d.n > 1 ? `<span class="chip">${d.agree}/${d.n} samples agree</span>` : ''}</div>
+    <p style="font-size:0.88rem; line-height:1.55; margin:10px 0;">${esc(t.thesis)}</p>
+    <div class="cols"><div><b style="color:var(--green);">✔ Strengths</b><ul style="padding-left:18px; font-size:0.84rem; margin:6px 0;">${li(t.strengths)}</ul></div><div><b style="color:var(--red);">⚠ Risks</b><ul style="padding-left:18px; font-size:0.84rem; margin:6px 0;">${li(t.risks)}</ul></div></div>
+    <div style="font-size:0.84rem; line-height:1.7;">${rows}</div>
+    ${reasoning}
+    <div class="muted" style="margin-top:12px;">⚖️ Decision by <b>${esc(d.model)}</b>${d.n > 1 ? ` (${d.n} samples averaged)` : ''} · briefing by <b>${esc(d.curator)}</b> · run locally on Ollama. Probabilities are the model’s own estimates, not calibrated. AI-generated from scraped data — not investment advice. <span class="link" onclick="copyReport(${S.runId})">copy report</span></div></div>`;
+}
+function copyReport(id) {
+  const run = RUNS.find(r => r.id === id), d = run && run.S.dec; if (!d || !navigator.clipboard) return;
+  const t = d.text, nm = run.S.d.name;
+  navigator.clipboard.writeText(`# ${nm} — ${d.verdict}\n${t.headline}\n\nInvest ${d.probs.INVEST}% · Watch ${d.probs.WATCH}% · Avoid ${d.probs.AVOID}%\n\n${t.thesis}\n\nStrengths:\n${t.strengths.map(x => '- ' + x).join('\n')}\n\nRisks:\n${t.risks.map(x => '- ' + x).join('\n')}\n\nShort term: ${d.dims.short_term.label}${t.shortNote ? ' — ' + t.shortNote : ''}\nLong term: ${d.dims.long_term.label}${t.longNote ? ' — ' + t.longNote : ''}\n\nAction: ${t.action}\nWhat would change this view: ${t.change}\n\nDecision: ${d.model} · Briefing: ${d.curator}`);
+}
+const kpi = (l, v, s) => `<div class="kpi"><span>${l}</span><b>${v}</b><i>${s || ''}</i></div>`;
+function tbl(x, defs, ttm) {
+  const head = x.years.map(y => `<th>${esc(y.slice(0, 3) + " '" + y.slice(-2))}</th>`).join('') + (ttm ? '<th>TTM</th>' : '');
+  return `<div style="overflow-x:auto;"><table class="t"><thead><tr><th></th>${head}</tr></thead><tbody>${defs.map(([l, a, tt]) => `<tr><td>${esc(l)}</td>${a.map(v => `<td>${saF(v)}</td>`).join('')}${ttm ? `<td>${saF(tt)}</td>` : ''}</tr>`).join('')}</tbody></table></div>`;
+}
+function stmt(d, x, regs, ttm) {
+  const defs = [];
+  regs.forEach(re => { const k = Object.keys(d.ann).find(l => re.test(l)); if (!k) return; const r = d.ann[k], ti = r.cols.findIndex(c => /ttm/i.test(c)); defs.push([k, x.years.map(y => { const i = r.cols.indexOf(y); return i < 0 ? null : r.vals[i]; }), ti < 0 ? null : r.vals[ti]]); });
+  return defs.length ? tbl(x, defs, ttm) : '<div class="muted">Not available for this company</div>';
+}
+function renderData(d, x) {
+  const k = d.k, det = (t, h, open) => `<details${open ? ' open' : ''}><summary>${t}</summary>${h}</details>`;
+  const kp = [kpi('Price', '₹' + saF(k.price), `52w ${saF(k.lo)} – ${saF(k.hi)}`), kpi('P/E', saF(k.pe), x.pb ? 'P/B ' + x.pb : ''), kpi('EPS (TTM)', '₹' + saF(x.eps), x.g.eps3 != null ? `3y CAGR ${x.g.eps3}%` : ''),
+    kpi('ROE', saF(k.roe) + '%', `ROCE ${saF(k.roce)}%`), kpi('Debt / Equity', x.isFin ? 'n/a' : saF(x.de) + 'x', x.isFin ? 'financial company' : `Interest cover ${saF(x.ic)}x`), kpi('Market cap', '₹' + saF(k.mcap) + ' Cr', `Div yield ${saF(k.dy)}%`)].join('');
+  const PL = [/^(sales|revenue)/i, /^expenses/i, /^(operating profit|financing profit)/i, /^(opm|financing margin)/i, /^other income/i, /^interest/i, /^depreciation/i, /^profit before tax/i, /^tax/i, /^net profit/i, /^eps/i, /^dividend payout/i];
+  const BS = [/^equity capital/i, /^reserves/i, /^borrowings/i, /^other liabilities/i, /^total liabilities/i, /^fixed assets/i, /^cwip/i, /^investments/i, /^other assets/i, /^total assets/i];
+  const CF = [/^cash from operating/i, /^cash from investing/i, /^cash from financing/i, /^net cash flow/i, /^free cash flow/i];
+  const Sx = x.series, dv = [['ROE % (computed)', Sx.roe], ['Debt / Equity (x)', Sx.de], ['Interest coverage (x)', Sx.ic], ['Borrowings', Sx.bor], ['Free cash flow', Sx.fcf], ['Op. cash flow ÷ net profit (x)', Sx.cfoNp], ['EPS ₹', Sx.eps, x.ttm.eps]];
+  return `<div class="card"><div class="row" style="justify-content:space-between;"><b>📊 Scraped fundamentals · ${esc(d.name)}</b><span class="muted">${esc(d.basis)} · ${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" style="color:var(--accent2);">Screener.in</a>` : 'pasted text'} · ₹ Cr</span></div><div class="kpis" style="margin-top:12px;">${kp}</div>` +
+    det('Earnings per share, ROE & debt by year', tbl(x, dv.map(r => [r[0], r[1], r[2] == null ? null : r[2]]), true), true) + det('Profit & Loss', stmt(d, x, PL, true)) + det('Balance Sheet', stmt(d, x, BS, false)) + det('Cash Flow', stmt(d, x, CF, false)) + '</div>';
+}
+
+// ── start-up ──
+const savedUrl = store.get('sa2_url', null); if (savedUrl) $('olUrl').value = savedUrl;
+olDetect();
+</script>
+</body>
+</html>
